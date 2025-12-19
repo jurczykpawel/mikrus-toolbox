@@ -9,20 +9,31 @@ SCRIPT_PATH="$1"
 
 # 1. Validate input
 if [ -z "$SCRIPT_PATH" ]; then
-  echo "❌ Error: No script specified."
-  echo "Usage: $0 <path/to/script.sh>"
+  echo "❌ Error: No script or app name specified."
+  echo "Usage: $0 <app_name> OR <path/to/script.sh>"
+  echo "Example: $0 n8n"
+  echo "Example: $0 apps/n8n/backup.sh"
   exit 1
 fi
 
-if [ ! -f "$SCRIPT_PATH" ]; then
-  # Try to find it relative to the repo root if run from a subdir
-  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-  if [ -f "$REPO_ROOT/$SCRIPT_PATH" ]; then
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+# Check if it's a short app name (Smart Mode)
+if [ -f "$REPO_ROOT/apps/$SCRIPT_PATH/install.sh" ]; then
+    echo "💡 Detected App Name: '$SCRIPT_PATH'. Using installer."
+    SCRIPT_PATH="$REPO_ROOT/apps/$SCRIPT_PATH/install.sh"
+elif [ -f "$SCRIPT_PATH" ]; then
+    # Direct file exists
+    :
+elif [ -f "$REPO_ROOT/$SCRIPT_PATH" ]; then
+    # Relative to root exists
     SCRIPT_PATH="$REPO_ROOT/$SCRIPT_PATH"
-  else
-    echo "❌ Error: Script file '$SCRIPT_PATH' not found."
+else
+    echo "❌ Error: Script or App '$SCRIPT_PATH' not found."
+    echo "   Searched for:"
+    echo "   - apps/$SCRIPT_PATH/install.sh"
+    echo "   - $SCRIPT_PATH"
     exit 1
-  fi
 fi
 
 # 2. Confirm action
