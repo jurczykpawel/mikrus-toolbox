@@ -9,8 +9,6 @@ set -e
 
 APP_NAME="cookie-hub"
 STACK_DIR="/var/www/$APP_NAME"
-# Using a high port for internal Caddy routing if needed, 
-# but here we will point Caddy directly to the folder.
 
 echo "--- 🍪 Cookie Hub Setup (Klaro!) ---"
 echo "This will create a central server for your Cookie Consent scripts."
@@ -46,7 +44,7 @@ mkdir -p public
 cp node_modules/klaro/dist/klaro.js public/
 cp node_modules/klaro/dist/klaro.css public/
 
-# 5. Create Configuration Template
+# 5. Create Configuration Template (WITH FULL POLISH TRANSLATION)
 echo "📝 Generating default config.js..."
 cat <<EOF > public/config.js
 // Klaro Configuration - Centralized
@@ -62,21 +60,47 @@ var klaroConfig = {
     acceptAll: true,
     hideDeclineAll: false,
     hideLearnMore: false,
-    
+    lang: 'pl', 
+
     // Translations
     translations: {
         pl: {
             consentModal: {
                 title: 'Szanujemy Twoją prywatność',
-                description: 'Używamy plików cookie, aby zapewnić najlepszą jakość.',
+                description: 'Używamy plików cookie i innych technologii, aby zapewnić najlepszą jakość korzystania z naszej strony.',
                 privacyPolicy: {
                     name: 'polityką prywatności',
-                    text: 'Dowiedz się więcej w naszej {privacyPolicy}.'
+                    text: 'Szczegóły znajdziesz w naszej {privacyPolicy}.'
                 }
             },
-            googleAnalytics: {
-                description: 'Zbieranie statystyk odwiedzin (anonimowe).'
-            }
+            consentNotice: {
+                changeDescription: 'Zmieniły się zasady przetwarzania danych od Twojej ostatniej wizyty.',
+                description: 'Używamy plików cookie do analizy ruchu i personalizacji treści.',
+                learnMore: 'Dostosuj zgody'
+            },
+            purposes: {
+                analytics: 'Analityka',
+                security: 'Bezpieczeństwo',
+                marketing: 'Marketing',
+                styling: 'Stylizacja'
+            },
+            ok: 'Zaakceptuj wszystko',
+            save: 'Zapisz wybrane',
+            decline: 'Odrzuć',
+            close: 'Zamknij',
+            app: {
+                optOut: {
+                    title: '(Opcjonalne)',
+                    description: 'Ta aplikacja jest domyślnie wyłączona.'
+                },
+                required: {
+                    title: '(Wymagane)',
+                    description: 'Ta aplikacja jest zawsze wymagana.'
+                },
+                purposes: 'Cele',
+                purpose: 'Cel'
+            },
+            poweredBy: 'Zasilane przez Klaro!'
         }
     },
 
@@ -89,7 +113,8 @@ var klaroConfig = {
             purposes: ['analytics'],
             cookies: [
                 [/^_ga/],
-                [/^_gid/]
+                [/^_gid/],
+                [/^umami/]
             ],
             // If you use GTM or GA via script tag, add 'data-name="googleAnalytics"' to it
         }
