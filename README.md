@@ -39,6 +39,7 @@ Przygotowaliśmy gotowe skrypty instalacyjne ("One-Click"), które stawiają us�
 | **Typebot** | Typeform | Interaktywne formularze i chatboty. Zbieraj leady, rób ankiety, sprzedawaj w rozmowie. |
 | **Umami** | Google Analytics | Statystyki WWW. Proste, czytelne, szanujące prywatność (bez RODO-paniki). |
 | **Cookie Hub** | Cookiebot / CookieYes | Centralny serwer zgód RODO (Klaro!). Zarządzaj ciasteczkami na wszystkich stronach z jednego miejsca. |
+| **FileBrowser** | Tiiny.host / Dropbox | Prywatny Google Drive + Hosting (Tiiny.host Killer). Wrzucaj PDF-y i Landing Page przez WWW. |
 
 ### 🏢 Biuro & Produktywność
 | Narzędzie | Zastępuje | Opis |
