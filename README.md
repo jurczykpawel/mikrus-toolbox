@@ -37,7 +37,7 @@ Przygotowaliśmy gotowe skrypty instalacyjne ("One-Click"), które stawiają us�
 ### 💰 Marketing & Sprzedaż
 | Narzędzie | Zastępuje | Opis |
 | :--- | :--- | :--- |
-| **GateFlow** | Kajabi / Teachable | **Twój własny system sprzedaży.** Kursy, e-booki, paywalle. Zintegrowany ze Stripe i Supabase. |
+| **GateFlow** | EasyCart / Gumroad | **Twój własny sklep z produktami cyfrowymi.** E-booki, kursy, szablony. 0 zł/mies, 0% prowizji. Lejki, OTO, kupony, Omnibus EU. |
 | **Listmonk** | Mailchimp / ActiveCampaign | System newsletterowy. Wysyłaj miliony maili za grosze (przez Amazon SES lub inny SMTP). |
 | **Typebot** | Typeform | Interaktywne formularze i chatboty. Zbieraj leady, rób ankiety, sprzedawaj w rozmowie. |
 | **Cap** | Loom | Nagrywaj ekran i udostępniaj wideo. Idealny do tutoriali i komunikacji asynchronicznej. |
