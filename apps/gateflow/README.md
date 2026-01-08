@@ -126,53 +126,6 @@ W n8n możesz:
 
 ---
 
-## 🛡️ Bezpieczeństwo
-
-- **AES-256-GCM** - szyfrowanie kluczy API
-- **Row Level Security (RLS)** - izolacja danych w Supabase
-- **Rate limiting** - ochrona przed atakami
-- **HMAC webhooks** - weryfikacja pochodzenia requestów
-- **Audit logging** - pełna historia zmian
-- **Cloudflare Turnstile** - ochrona przed botami
-
----
-
-## 📈 Statystyki Projektu
-
-```
-├── 571 testów E2E (100% pass rate)
-├── 54+ endpointów API
-├── 25+ tabel w bazie
-├── 40+ funkcji RPC
-├── 50+ polityk RLS
-└── 2 języki (PL, EN)
-```
-
----
-
-## 🔧 Zarządzanie
-
-```bash
-# Logi
-ssh mikrus "pm2 logs gateflow"
-
-# Restart
-ssh mikrus "pm2 restart gateflow"
-
-# Status
-ssh mikrus "pm2 status"
-```
-
----
-
-## 📚 Dokumentacja
-
-- [DEPLOYMENT.md](https://github.com/pavvel11/gateflow/blob/main/DEPLOYMENT.md) - Pełny przewodnik wdrożenia
-- [FEATURES.md](https://github.com/pavvel11/gateflow/blob/main/FEATURES.md) - Lista wszystkich funkcji
-- [STRIPE-TESTING-GUIDE.md](https://github.com/pavvel11/gateflow/blob/main/STRIPE-TESTING-GUIDE.md) - Testowanie płatności
-
----
-
 ## ❓ FAQ
 
 **Q: Czy to naprawdę darmowe?**
@@ -186,3 +139,7 @@ A: Tak, licencja MIT pozwala na pełną personalizację - logo, kolory, domena, 
 
 **Q: Co z subskrypcjami?**
 A: Stripe Subscriptions są w roadmapie. Obecnie obsługiwane są jednorazowe płatności i dostęp czasowy.
+
+---
+
+> 📖 **Więcej informacji, dokumentacja i kod źródłowy:** https://github.com/pavvel11/gateflow
