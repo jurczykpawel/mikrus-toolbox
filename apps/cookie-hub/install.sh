@@ -169,6 +169,9 @@ EOF
         echo "Blad uruchomienia!"; sudo docker compose logs --tail 10; exit 1
     fi
 
+    # Zapisz port dla deploy.sh (do konfiguracji domeny)
+    echo "$PORT" > /tmp/app_port
+
     echo ""
     echo "Cookie Hub started!"
     echo "   Port: $PORT"
