@@ -16,22 +16,38 @@ echo "This setup assumes you are using an External PostgreSQL (e.g., Mikrus Shar
 echo "This saves RAM and CPU on your VPS."
 echo ""
 
-# 1. Gather Database Credentials
-read -p "Database Host (e.g., srv15.mikr.us): " DB_HOST
-read -p "Database Port (default 5432): " DB_PORT
-DB_PORT=${DB_PORT:-5432}
-read -p "Database Name: " DB_NAME
-read -p "Database User: " DB_USER
-read -s -p "Database Password: " DB_PASS
-echo ""
-echo ""
-read -p "Domain for n8n (e.g., n8n.kamil.pl): " DOMAIN
-read -p "Webhook URL (https://$DOMAIN/): " WEBHOOK_URL
+# 1. Database Credentials (from environment or prompt)
+if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
+    echo "✅ Używam danych bazy z konfiguracji:"
+    echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
+    DB_PORT=${DB_PORT:-5432}
+else
+    echo "📝 Podaj dane bazy PostgreSQL:"
+    read -p "Database Host (e.g., psql01.mikr.us): " DB_HOST
+    read -p "Database Port (default 5432): " DB_PORT
+    DB_PORT=${DB_PORT:-5432}
+    read -p "Database Name: " DB_NAME
+    read -p "Database User: " DB_USER
+    read -s -p "Database Password: " DB_PASS
+    echo ""
+fi
+# Domain (from environment or prompt)
+if [ -n "$DOMAIN" ]; then
+    echo "✅ Używam domeny z konfiguracji: $DOMAIN"
+else
+    echo ""
+    read -p "Domain for n8n (e.g., n8n.example.com): " DOMAIN
+fi
+read -p "Webhook URL [https://$DOMAIN/]: " WEBHOOK_URL
 WEBHOOK_URL=${WEBHOOK_URL:-https://$DOMAIN/}
 
 # 2. Prepare Directory
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
+
+# Utwórz katalog data z odpowiednimi uprawnieniami (n8n działa jako UID 1000)
+sudo mkdir -p "$STACK_DIR/data"
+sudo chown -R 1000:1000 "$STACK_DIR/data"
 
 # 3. Create docker-compose.yaml
 # Features:
@@ -41,14 +57,13 @@ cd "$STACK_DIR"
 # - Execution logs pruning (keep DB small)
 
 cat <<EOF | sudo tee docker-compose.yaml
-version: "3.8"
 
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
     ports:
-      - "127.0.0.1:$PORT:5678"
+      - "$PORT:5678"
     environment:
       - N8N_HOST=$DOMAIN
       - N8N_PORT=5678
@@ -62,6 +77,7 @@ services:
       - DB_POSTGRESDB_HOST=$DB_HOST
       - DB_POSTGRESDB_PORT=$DB_PORT
       - DB_POSTGRESDB_DATABASE=$DB_NAME
+      - DB_POSTGRESDB_SCHEMA=${DB_SCHEMA:-public}
       - DB_POSTGRESDB_USER=$DB_USER
       - DB_POSTGRESDB_PASSWORD=$DB_PASS
       
@@ -78,7 +94,8 @@ services:
       # Disable diagnostics to save ram
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_VERSION_NOTIFICATIONS_ENABLED=true
-      
+    volumes:
+      - ./data:/home/node/.n8n
     deploy:
       resources:
         limits:
@@ -89,12 +106,28 @@ EOF
 echo "--- 4. Starting n8n ---"
 sudo docker compose up -d
 
-echo "--- 5. Configuring HTTPS via Caddy ---"
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
+# Health check - sprawdź czy kontener działa i app odpowiada
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type wait_for_healthy &>/dev/null; then
+    wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
-    echo "⚠️  'mikrus-expose' not found. Install Caddy first via system/caddy-install.sh"
-    echo "   Or configure your reverse proxy manually."
+    sleep 5
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ Kontener działa"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
+fi
+
+# Caddy/HTTPS - tylko dla prawdziwych domen (nie placeholder Cytrus)
+if [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+    echo "--- 5. Configuring HTTPS via Caddy ---"
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN" "$PORT"
+    else
+        echo "⚠️  'mikrus-expose' not found. Install Caddy first via system/caddy-install.sh"
+        echo "   Or configure your reverse proxy manually."
+    fi
 fi
 
 echo ""

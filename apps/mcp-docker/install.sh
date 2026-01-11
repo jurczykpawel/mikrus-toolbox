@@ -18,7 +18,6 @@ cd "$STACK_DIR"
 
 # Using the community-standard MCP server for Docker
 cat <<EOF | sudo tee docker-compose.yaml
-version: '3.8'
 
 services:
   mcp-docker:
@@ -35,7 +34,18 @@ EOF
 
 sudo docker compose up -d
 
-echo "✅ Docker MCP Server is running!"
+# Health check (MCP nie ma HTTP)
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type check_container_running &>/dev/null; then
+    check_container_running "$APP_NAME" || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+else
+    sleep 3
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ Docker MCP Server działa"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
+fi
 echo ""
 echo "💡 How to use with your local AI Agent:"
 echo "   Add this to your Claude/Cursor/Agent config:"

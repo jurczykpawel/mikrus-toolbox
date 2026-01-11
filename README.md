@@ -98,6 +98,25 @@ git clone https://github.com/pavvel11/mikrus-toolbox.git
 cd mikrus-toolbox
 ```
 
+### 🤖 Opcja "AI Assistant" - niech Claude zrobi to za Ciebie
+
+Nie chcesz czytać dokumentacji? Masz zainstalowane [Claude Code](https://claude.ai/code)?
+
+```bash
+cd mikrus-toolbox
+claude
+```
+
+I po prostu powiedz co chcesz:
+- *"Zainstaluj mi n8n na serwerze hanna"*
+- *"Skonfiguruj backup do Google Drive"*
+- *"Sprawdź czy wszystkie kontenery działają"*
+- *"Wystaw Dockge pod domeną panel.mojafirma.pl"*
+
+Claude zna ten toolbox (dzięki plikowi `CLAUDE.md`) i przeprowadzi Cię przez cały proces krok po kroku. Zadba o DNS, porty, certyfikaty SSL - wszystko.
+
+> 💡 **To jest magia:** AI + dobre skrypty = zero stresu przy administracji serwerem.
+
 ### Krok 2: Instalacja Fundamentów (Na Serwerze)
 Użyjemy naszego magicznego skryptu `local/deploy.sh`, który wysyła instrukcje na serwer.
 
@@ -149,7 +168,39 @@ Użyjemy naszego magicznego skryptu `local/deploy.sh`, który wysyła instrukcje
     >
     > *Tip: Na start Cytrus wystarczy. Caddy daje więcej kontroli i jest w pełni na Twoim serwerze.*
 
-### Krok 3: Backup - ZRÓB TO OD RAZU!
+3.  **Cloudflare DNS:** (Automatyzacja domen - ZALECANE)
+    ```bash
+    ./local/setup-cloudflare.sh
+    ```
+
+    > 💡 **Po co to?**
+    >
+    > **Problem:** Mikrus używa IPv6, a większość polskich ISP obsługuje tylko IPv4. Bez Cloudflare Twoje strony nie będą działać dla wielu użytkowników!
+    >
+    > **Rozwiązanie:** Cloudflare działa jako "tłumacz" - przyjmuje ruch IPv4 i przekazuje go na IPv6 Mikrusa. Plus: automatyzacja DNS!
+    >
+    > **Co daje konfiguracja?**
+    > - Dodawanie rekordów DNS jednym poleceniem (zamiast klikania w panelu)
+    > - Strony działają dla WSZYSTKICH (nie tylko użytkowników IPv6)
+    > - Darmowy SSL, CDN i ochrona DDoS
+    >
+    > **Wymagania:**
+    > 1. Domena (np. z [OVH](https://www.ovhcloud.com/pl/domains/) - od ~12 zł/rok)
+    > 2. Darmowe konto [Cloudflare](https://www.cloudflare.com/)
+    > 3. Domena przekierowana na serwery DNS Cloudflare
+    >
+    > 📖 **[Pełna instrukcja: Jak skonfigurować domenę z Cloudflare](docs/cloudflare-domain-setup.md)**
+    >
+    > **Po konfiguracji - dodawanie domen to bajka:**
+    > ```bash
+    > # DNS (automatycznie pobiera IPv6 z serwera!)
+    > ./local/dns-add.sh status.mojafirma.pl
+    >
+    > # HTTPS
+    > ssh mikrus 'mikrus-expose status.mojafirma.pl 3001'
+    > ```
+
+### Krok 4: Backup - ZRÓB TO OD RAZU!
 
 Nie pozwól, żeby awaria zniszczyła Twój biznes. Skonfiguruj backup **zanim** zaczniesz instalować aplikacje.
 
@@ -263,7 +314,7 @@ SOURCE_DIRS=(
 
 > 💡 Backup jest szyfrowany na serwerze przed wysłaniem. Nawet Google nie widzi Twoich danych.
 
-### Krok 4: Instalacja Aplikacji
+### Krok 5: Instalacja Aplikacji
 
 **Panel Sterowania (Dockge)** - zacznij od tego:
 ```bash
@@ -311,6 +362,69 @@ Uruchamiaj go przed każdą dużą zmianą lub dodaj do Crona.
 
 ## 💡 Przydatne Komendy
 
+### 🔍 Sprawdzanie czy usługa działa
+
+Zainstalowałeś coś i nie wiesz czy działa? Oto zestaw komend diagnostycznych:
+
+```bash
+# 1. Czy kontener w ogóle istnieje i działa?
+ssh mikrus 'docker ps | grep nazwa-uslugi'
+
+# 2. Logi kontenera (ostatnie 50 linii)
+ssh mikrus 'cd /opt/stacks/nazwa-uslugi && docker compose logs --tail 50'
+
+# 3. Czy port odpowiada? (200 lub 302 = OK)
+ssh mikrus 'curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT'
+
+# 4. Ile zasobów zużywa?
+ssh mikrus 'docker stats --no-stream'
+```
+
+**Przykład dla Dockge:**
+```bash
+ssh mikrus 'docker ps | grep dockge'
+ssh mikrus 'curl -s -o /dev/null -w "%{http_code}" http://localhost:5001'
+```
+
+### 🚇 Tunel SSH - dostęp bez domeny
+
+**Co to jest?**
+Tunel SSH to "magiczny portal" który łączy port na Twoim komputerze z portem na serwerze. Dzięki temu możesz otworzyć aplikację w przeglądarce **bez konfigurowania domeny i DNS**.
+
+**Kiedy to przydatne?**
+- Testujesz aplikację przed wystawieniem publicznym
+- Nie masz jeszcze domeny
+- Chcesz szybko zerknąć czy coś działa
+- Dostęp do paneli administracyjnych które nie powinny być publiczne
+
+**Jak uruchomić tunel?**
+```bash
+# Składnia: ssh -L lokalny_port:localhost:zdalny_port alias_serwera
+ssh -L 5001:localhost:5001 mikrus
+```
+
+Teraz otwórz w przeglądarce: `http://localhost:5001` - zobaczysz Dockge!
+
+**Popularne porty:**
+| Usługa | Port | Komenda tunelu |
+|--------|------|----------------|
+| Dockge | 5001 | `ssh -L 5001:localhost:5001 mikrus` |
+| n8n | 5678 | `ssh -L 5678:localhost:5678 mikrus` |
+| Uptime Kuma | 3001 | `ssh -L 3001:localhost:3001 mikrus` |
+| ntfy | 8085 | `ssh -L 8085:localhost:8085 mikrus` |
+
+**Jak wyjść z tunelu?**
+- Wpisz `exit` w terminalu, lub
+- Naciśnij `Ctrl+D`, lub
+- Po prostu zamknij okno terminala
+
+> 💡 **Pro tip:** Możesz otworzyć wiele tuneli naraz:
+> ```bash
+> ssh -L 5001:localhost:5001 -L 5678:localhost:5678 mikrus
+> ```
+
+> ⚠️ **Uwaga:** Tunel działa tylko gdy terminal jest otwarty. Zamknięcie terminala = koniec tunelu.
+
 ### Synchronizacja Plików (Lokalny komputer <-> Mikrus)
 Chcesz wrzucić pliki strony na serwer? Albo pobrać logi?
 ```bash
@@ -328,8 +442,23 @@ Coś wybuchło? Przywróć serwer do stanu z wczoraj.
 ```
 
 ### Dodawanie domen (HTTPS)
-Postawiłeś coś na porcie 5000 i chcesz mieć ładną domenę?
-Zaloguj się na serwer (`ssh mikrus`) i wpisz:
+
+#### Opcja A: Automatycznie (Cloudflare)
+Jeśli masz domeny w Cloudflare, możesz dodawać rekordy DNS jedną komendą:
+
+```bash
+# Jednorazowa konfiguracja
+./local/setup-cloudflare.sh
+
+# Potem dla każdej aplikacji (IP pobiera się automatycznie z serwera!):
+./local/dns-add.sh status.mojafirma.pl           # używa 'mikrus'
+./local/dns-add.sh status.mojafirma.pl hanna     # używa 'hanna'
+ssh mikrus 'mikrus-expose status.mojafirma.pl 3001'
+```
+
+#### Opcja B: Ręcznie (dowolny provider)
+1. Dodaj rekord A w panelu DNS swojego providera (OVH, home.pl, Cloudflare...)
+2. Zaloguj się na serwer (`ssh mikrus`) i wpisz:
 ```bash
 mikrus-expose mojadomena.pl 5000
 ```

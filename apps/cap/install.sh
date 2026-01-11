@@ -20,28 +20,38 @@ echo "   - S3 Storage (na wideo)"
 echo "   - Zalecane: Mikrus 4.0 (2GB RAM) lub wyższy"
 echo ""
 
-# 1. Wybór trybu bazy danych
+# 1. Konfiguracja bazy MySQL
 echo "=== Konfiguracja MySQL ==="
-echo "1) Zewnętrzna baza MySQL (zalecane dla Mikrus)"
-echo "2) Lokalna baza MySQL (zje więcej RAM)"
-read -p "Wybierz [1-2]: " DB_MODE
 
-if [ "$DB_MODE" == "1" ]; then
-    read -p "MySQL Host (np. srv15.mikr.us): " MYSQL_HOST
-    read -p "MySQL Port (default 3306): " MYSQL_PORT
-    MYSQL_PORT=${MYSQL_PORT:-3306}
-    read -p "MySQL Database: " MYSQL_DB
-    read -p "MySQL User: " MYSQL_USER
-    read -s -p "MySQL Password: " MYSQL_PASS
-    echo ""
-    DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASS}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}"
+# Database credentials (from environment or prompt)
+if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
+    echo "✅ Używam danych bazy z konfiguracji:"
+    echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
+    DB_PORT=${DB_PORT:-3306}
+    DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
     USE_LOCAL_MYSQL="false"
 else
-    read -s -p "Ustaw hasło root dla MySQL: " MYSQL_ROOT_PASS
-    echo ""
-    MYSQL_DB="cap"
-    DATABASE_URL="mysql://root:${MYSQL_ROOT_PASS}@cap-mysql:3306/${MYSQL_DB}"
-    USE_LOCAL_MYSQL="true"
+    echo "1) Zewnętrzna baza MySQL (zalecane dla Mikrus)"
+    echo "2) Lokalna baza MySQL (zje więcej RAM)"
+    read -p "Wybierz [1-2]: " DB_MODE
+
+    if [ "$DB_MODE" == "1" ]; then
+        read -p "MySQL Host (np. mysql.mikr.us): " MYSQL_HOST
+        read -p "MySQL Port (default 3306): " MYSQL_PORT
+        MYSQL_PORT=${MYSQL_PORT:-3306}
+        read -p "MySQL Database: " MYSQL_DB
+        read -p "MySQL User: " MYSQL_USER
+        read -s -p "MySQL Password: " MYSQL_PASS
+        echo ""
+        DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASS}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}"
+        USE_LOCAL_MYSQL="false"
+    else
+        read -s -p "Ustaw hasło root dla MySQL: " MYSQL_ROOT_PASS
+        echo ""
+        MYSQL_DB="cap"
+        DATABASE_URL="mysql://root:${MYSQL_ROOT_PASS}@cap-mysql:3306/${MYSQL_DB}"
+        USE_LOCAL_MYSQL="true"
+    fi
 fi
 
 # 2. Wybór trybu storage
@@ -73,7 +83,12 @@ fi
 # 3. Domena i bezpieczeństwo
 echo ""
 echo "=== Konfiguracja Domeny ==="
-read -p "Domena dla Cap (np. cap.mojafirma.pl): " DOMAIN
+# Domain (from environment or prompt)
+if [ -n "$DOMAIN" ]; then
+    echo "✅ Używam domeny z konfiguracji: $DOMAIN"
+else
+    read -p "Domena dla Cap (np. cap.mojafirma.pl): " DOMAIN
+fi
 
 if [ "$USE_LOCAL_MINIO" == "true" ]; then
     S3_PUBLIC_URL="https://${DOMAIN}:3902"
@@ -94,14 +109,13 @@ cd "$STACK_DIR"
 echo "--- Tworzę konfigurację Docker ---"
 
 cat <<EOF | sudo tee docker-compose.yaml
-version: "3.8"
 
 services:
   cap-web:
     image: ghcr.io/capsoftware/cap-web:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${PORT}:3000"
+      - "${PORT}:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - WEB_URL=https://${DOMAIN}
@@ -129,7 +143,7 @@ cat <<EOF | sudo tee -a docker-compose.yaml
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASS}
       - MYSQL_DATABASE=${MYSQL_DB}
     volumes:
-      - mysql-data:/var/lib/mysql
+      - ./mysql-data:/var/lib/mysql
     deploy:
       resources:
         limits:
@@ -151,7 +165,7 @@ cat <<EOF | sudo tee -a docker-compose.yaml
       - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
       - MINIO_DEFAULT_BUCKETS=${S3_BUCKET}
     volumes:
-      - minio-data:/bitnami/minio/data
+      - ./minio-data:/bitnami/minio/data
     deploy:
       resources:
         limits:
@@ -159,19 +173,8 @@ cat <<EOF | sudo tee -a docker-compose.yaml
 EOF
 fi
 
-# Volumes section
-cat <<EOF | sudo tee -a docker-compose.yaml
-
-volumes:
-EOF
-
-if [ "$USE_LOCAL_MYSQL" == "true" ]; then
-    echo "  mysql-data:" | sudo tee -a docker-compose.yaml
-fi
-
-if [ "$USE_LOCAL_MINIO" == "true" ]; then
-    echo "  minio-data:" | sudo tee -a docker-compose.yaml
-fi
+# Bind mounts są używane zamiast named volumes - dane w /opt/stacks/cap/
+# Dzięki temu backup automatycznie obejmuje mysql-data/ i minio-data/
 
 # Memory limit dla cap-web
 sudo sed -i '/cap-web:/,/environment:/{ /image:/a\    deploy:\n      resources:\n        limits:\n          memory: 512M' docker-compose.yaml 2>/dev/null || true
@@ -179,6 +182,19 @@ sudo sed -i '/cap-web:/,/environment:/{ /image:/a\    deploy:\n      resources:\
 echo ""
 echo "--- Uruchamiam Cap ---"
 sudo docker compose up -d
+
+# Health check
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type wait_for_healthy &>/dev/null; then
+    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+else
+    sleep 10
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ Cap działa"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
+fi
 
 echo ""
 echo "--- Konfiguruję HTTPS via Caddy ---"

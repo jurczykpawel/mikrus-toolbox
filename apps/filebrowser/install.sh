@@ -33,14 +33,13 @@ sudo chown 1000:1000 filebrowser.db
 
 # 3. Docker Compose
 cat <<EOF | sudo tee docker-compose.yaml
-version: '3.8'
 
 services:
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: always
     ports:
-      - "127.0.0.1:$PORT:80"
+      - "$PORT:80"
     volumes:
       - $DATA_DIR:/srv
       - ./filebrowser.db:/database.db
@@ -57,6 +56,19 @@ EOF
 
 # 4. Start
 sudo docker compose up -d
+
+# Health check
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type wait_for_healthy &>/dev/null; then
+    wait_for_healthy "$APP_NAME" "$PORT" 30 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+else
+    sleep 5
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ FileBrowser działa"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
+fi
 
 # 5. Caddy Configuration
 if command -v mikrus-expose &> /dev/null; then

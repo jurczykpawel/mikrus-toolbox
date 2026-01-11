@@ -12,39 +12,42 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=3001
 
 echo "--- 📈 Uptime Kuma Setup ---"
-read -p "Domain (e.g., status.kamil.pl): " DOMAIN
 
 # Setup Dir
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
 # Compose
-cat <<EOF | sudo tee docker-compose.yaml
-version: '3.8'
-
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:1
     restart: always
     ports:
-      - "127.0.0.1:$PORT:3001"
+      - "$PORT:3001"
     volumes:
       - ./data:/app/data
     deploy:
       resources:
         limits:
           memory: 256M
-
 EOF
 
 # Start
 sudo docker compose up -d
 
-# Expose
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
+# Health check
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type wait_for_healthy &>/dev/null; then
+    wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
-    echo "⚠️  Install Caddy first to expose domain automatically."
+    sleep 5
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ Uptime Kuma działa na porcie $PORT"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
 fi
 
-echo "✅ Uptime Kuma started at https://$DOMAIN"
+echo ""
+echo "📊 Pierwszy login: utwórz konto admina w przeglądarce"

@@ -25,7 +25,6 @@ cd "$DOCKGE_DIR"
 echo "--- 3. Downloading Dockge Compose File ---"
 # We create it manually to ensure it's optimized
 cat <<EOF | sudo tee docker-compose.yaml
-version: "3.8"
 services:
   dockge:
     image: louislam/dockge:1
@@ -44,10 +43,17 @@ EOF
 echo "--- 4. Starting Dockge ---"
 sudo docker compose up -d
 
-echo "✅ Dockge is running on port $PORT!"
+# Health check
+source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+if type wait_for_healthy &>/dev/null; then
+    wait_for_healthy "dockge" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+else
+    sleep 5
+    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
+        echo "✅ Dockge działa na porcie $PORT"
+    else
+        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+    fi
+fi
 echo ""
 echo "📂 Stacks: $STACKS_DIR"
-echo ""
-echo "🔗 Następne kroki - wystaw aplikację przez HTTPS:"
-echo "   Caddy:  mikrus-expose dockge.twojadomena.pl $PORT"
-echo "   Cytrus: Panel Mikrus → Domeny → przekieruj na port $PORT"

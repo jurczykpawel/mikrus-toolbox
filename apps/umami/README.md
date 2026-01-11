@@ -8,7 +8,10 @@ Prosta, szybka i prywatna alternatywa dla Google Analytics. Zgodna z RODO bez uc
 ./local/deploy.sh umami
 ```
 
-**Wymagania:** Baza PostgreSQL. Zalecamy użycie tej samej zewnętrznej bazy co do n8n (współdzielona Mikrus lub "Cegła").
+**Wymagania:**
+- PostgreSQL z rozszerzeniem **pgcrypto**
+- ⚠️ **Współdzielona baza Mikrusa NIE działa!** (brak uprawnień do tworzenia rozszerzeń)
+- Użyj: dedykowany PostgreSQL z [Mikrus Cloud](https://mikr.us/panel/?a=cloud) (od 5 PLN/mies.)
 
 ## 💡 Dlaczego warto?
 - **Masz własność danych:** Google nie sprzedaje Twoich statystyk reklamodawcom.

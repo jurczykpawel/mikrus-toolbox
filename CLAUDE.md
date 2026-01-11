@@ -1,87 +1,74 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
-## Project Overview
+## Instrukcja techniczna
 
-Mikrus Toolbox is a collection of deployment scripts for self-hosted applications on low-resource VPS servers (primarily Mikrus.pl). The toolbox enables "solopreneurs" to run enterprise-grade services (n8n, Listmonk, NocoDB, etc.) on cheap VPS hosting (~20 PLN/month).
+**Przeczytaj `GUIDE.md`** - zawiera kompletną dokumentację:
+- Połączenie z serwerami Mikrus (SSH, API)
+- Lista dostępnych aplikacji
+- Komendy deployment
+- Diagnostyka i troubleshooting
+- Architektura (Cytrus vs Cloudflare)
 
-**Language:** Polish (README, comments, user prompts in scripts)
+## Twoja Rola
 
-## Repository Structure
+Jesteś asystentem pomagającym użytkownikom zarządzać ich serwerami Mikrus. Użytkownicy mogą prosić Cię o:
+- Instalację aplikacji (n8n, Uptime Kuma, ntfy, itp.)
+- Konfigurację backupów
+- Diagnostykę problemów
+- Wystawianie aplikacji pod domeną (HTTPS)
+- Wyjaśnienie jak coś działa
+
+**Zawsze komunikuj się po polsku** - to toolbox dla polskich użytkowników.
+
+## Jak Pomagać Użytkownikom
+
+### Zasada główna
+
+Zrób za użytkownika wszystko co się da, resztę wytłumacz krok po kroku.
+
+**Wykonaj automatycznie** (skrypty, komendy SSH):
+- Instalacja aplikacji (`./local/deploy.sh`)
+- Sprawdzenie statusu kontenerów
+- Diagnostyka (logi, porty, zużycie RAM)
+- Konfiguracja backupów i domen
+
+**Poprowadź za rączkę** (użytkownik musi zrobić ręcznie):
+- Konfiguracja DNS u zewnętrznego providera
+- Tworzenie kont w zewnętrznych serwisach
+- Pierwsze logowanie i setup w przeglądarce
+
+### Gdzie szukać szczegółów?
+
+1. **`GUIDE.md`** - techniczna instrukcja (komendy, diagnostyka, architektura)
+2. **`apps/<app>/README.md`** - instrukcje dla konkretnej aplikacji
+3. **`docs/`** - szczegółowe poradniki (np. konfiguracja Cloudflare)
+
+## Dla deweloperów
+
+### Tworzenie nowych instalatorów
+
+Gdy tworzysz `apps/<newapp>/install.sh`:
+- Użyj `set -e` dla fail-fast
+- Nie pytaj o domenę - robi to `deploy.sh`
+- Umieść pliki w `/opt/stacks/<app>/`
+- Dodaj limity pamięci w docker-compose
+- Używaj polskiego w komunikatach
+
+### Flow deploy.sh
 
 ```
-mikrus-toolbox/
-├── local/           # Scripts run from local Mac (command center)
-│   ├── deploy.sh    # Main deployment script - pipes app scripts to remote server
-│   ├── sync.sh      # rsync wrapper for file uploads/downloads
-│   ├── setup-backup.sh   # Backup configuration wizard (uses rclone)
-│   └── restore.sh   # Emergency restore script
-├── system/          # Server-side system setup scripts
-│   ├── docker-setup.sh   # Docker installation with log optimization
-│   ├── caddy-install.sh  # Caddy reverse proxy + mikrus-expose helper
-│   ├── backup-core.sh    # Backup execution script (runs on server)
-│   └── power-tools.sh    # CLI tools (yt-dlp, ffmpeg, pup)
-└── apps/            # Application installers (one folder per app)
-    └── <app>/
-        ├── install.sh    # Main installer (run via deploy.sh)
-        ├── backup.sh     # Optional app-specific backup
-        └── README.md     # App documentation
+1. Potwierdzenie użytkownika
+2. FAZA ZBIERANIA: pytania o DB i domenę (bez API)
+3. "Teraz się zrelaksuj - pracuję..."
+4. FAZA WYKONANIA: API, Docker, instalacja
+5. KONFIGURACJA DOMENY: Cytrus (po uruchomieniu usługi!)
+6. Podsumowanie
 ```
 
-## Key Commands
+### Biblioteki pomocnicze
 
-### Deploy an application
-```bash
-# Smart mode (detects apps/<name>/install.sh)
-./local/deploy.sh n8n
-
-# Direct script path
-./local/deploy.sh apps/n8n/install.sh
-./local/deploy.sh system/docker-setup.sh
-```
-
-### File synchronization
-```bash
-./local/sync.sh up ./local-folder /remote/path    # Upload
-./local/sync.sh down /remote/path ./local-folder  # Download
-```
-
-### Setup backup
-```bash
-./local/setup-backup.sh   # Interactive wizard for cloud backup
-```
-
-## Architecture Patterns
-
-### Deployment Model
-Scripts in `local/` run on Mac and execute server scripts via SSH (`ssh mikrus`). The deploy.sh script pipes script content to the remote server (`cat script.sh | ssh mikrus "bash -s"`).
-
-**Prerequisite:** SSH alias `mikrus` must be configured (via external `setup_mikrus.sh`).
-
-### App Installation Convention
-Each app in `apps/` follows the pattern:
-1. Prompt user for configuration (domain, DB credentials)
-2. Create `/opt/stacks/<app>/` directory on server
-3. Generate `docker-compose.yaml` with memory limits
-4. Start container with `docker compose up -d`
-5. Configure HTTPS via `mikrus-expose <domain> <port>`
-
-### Resource Constraints
-All docker-compose files include memory limits (e.g., `600M` for n8n). Apps are optimized to use external PostgreSQL rather than local DB containers to save RAM.
-
-### HTTPS/SSL
-Caddy provides automatic HTTPS. The `mikrus-expose` CLI tool (installed by `caddy-install.sh`) adds domains to Caddyfile:
-```bash
-mikrus-expose app.domain.com 5000
-```
-
-## Writing New App Installers
-
-When creating `apps/<newapp>/install.sh`:
-- Use `set -e` for fail-fast behavior
-- Prompt for all user inputs (domain, credentials) interactively with `read`
-- Place files in `/opt/stacks/<app>/`
-- Include memory limits in docker-compose deploy section
-- Call `mikrus-expose` at the end for HTTPS setup
-- Use Polish for user-facing messages
+- `lib/db-setup.sh` - `ask_database()` + `fetch_database()`
+- `lib/domain-setup.sh` - `ask_domain()` + `configure_domain()`
+- `lib/health-check.sh` - weryfikacja czy kontener działa
