@@ -8,9 +8,37 @@ set -e
 
 APP_NAME="gateflow"
 INSTALL_DIR="/var/www/$APP_NAME"
-PORT=3333 # As per AI-DEPLOYMENT.md
+PORT=${PORT:-3333} # As per AI-DEPLOYMENT.md
 
 echo "--- 🚀 GateFlow Setup (Official PM2 Workflow) ---"
+
+# Wymagane zmienne środowiskowe
+MISSING_VARS=""
+[ -z "$REPO_URL" ] && MISSING_VARS="$MISSING_VARS REPO_URL"
+[ -z "$SUPABASE_URL" ] && MISSING_VARS="$MISSING_VARS SUPABASE_URL"
+[ -z "$SUPABASE_ANON_KEY" ] && MISSING_VARS="$MISSING_VARS SUPABASE_ANON_KEY"
+[ -z "$SUPABASE_SERVICE_KEY" ] && MISSING_VARS="$MISSING_VARS SUPABASE_SERVICE_KEY"
+[ -z "$STRIPE_PK" ] && MISSING_VARS="$MISSING_VARS STRIPE_PK"
+[ -z "$STRIPE_SK" ] && MISSING_VARS="$MISSING_VARS STRIPE_SK"
+[ -z "$DOMAIN" ] && MISSING_VARS="$MISSING_VARS DOMAIN"
+
+if [ -n "$MISSING_VARS" ]; then
+    echo "❌ Brak wymaganych zmiennych:$MISSING_VARS"
+    echo ""
+    echo "   Użycie:"
+    echo "   REPO_URL=https://github.com/... \\"
+    echo "   SUPABASE_URL=https://xxx.supabase.co \\"
+    echo "   SUPABASE_ANON_KEY=eyJ... \\"
+    echo "   SUPABASE_SERVICE_KEY=eyJ... \\"
+    echo "   STRIPE_PK=pk_live_... \\"
+    echo "   STRIPE_SK=sk_live_... \\"
+    echo "   DOMAIN=app.example.com ./install.sh"
+    exit 1
+fi
+
+echo "✅ Repo: $REPO_URL"
+echo "✅ Supabase: $SUPABASE_URL"
+echo "✅ Domena: $DOMAIN"
 
 # 1. Prerequisites Check
 if ! command -v pm2 &> /dev/null; then
@@ -20,7 +48,6 @@ fi
 
 # 2. Clone Repository
 echo "--- 📥 Cloning Source ---"
-read -p "GitHub Repository URL: " REPO_URL
 sudo mkdir -p "$INSTALL_DIR"
 sudo chown $USER:$USER "$INSTALL_DIR"
 
@@ -54,32 +81,21 @@ EOF
 
 # 4. Configure Environment
 echo "--- 🔑 Configuring .env.local ---"
-# Check if .env.local exists, if not ask
+# Check if .env.local exists, if not create from env vars
 if [ ! -f "admin-panel/.env.local" ]; then
-    read -p "Supabase URL: " SUP_URL
-    read -p "Supabase Anon Key: " SUP_ANON
-    read -s -p "Supabase Service Role Key: " SUP_SERVICE
-    echo ""
-    read -p "Stripe Publishable Key: " STRIPE_PK
-    read -s -p "Stripe Secret Key: " STRIPE_SK
-    echo ""
-    read -p "Admin Domain (e.g., app.gateflow.pl): " DOMAIN
-
     cat <<ENV > admin-panel/.env.local
-NEXT_PUBLIC_SUPABASE_URL=$SUP_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUP_ANON
-SUPABASE_SERVICE_ROLE_KEY=$SUP_SERVICE
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
 STRIPE_SECRET_KEY=$STRIPE_SK
-STRIPE_WEBHOOK_SECRET=TODO_UPDATE_ME
+STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-TODO_UPDATE_ME}
 NEXT_PUBLIC_BASE_URL=https://$DOMAIN
 NEXT_PUBLIC_SITE_URL=https://$DOMAIN
 ENV
     echo "✅ .env.local created."
 else
     echo "ℹ️  .env.local already exists. Skipping configuration."
-    # We still need DOMAIN for Caddy setup later
-    read -p "Confirm Admin Domain (for Caddy setup): " DOMAIN
 fi
 
 # 5. Build & Install

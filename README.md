@@ -49,7 +49,8 @@ Przygotowaliśmy gotowe skrypty instalacyjne ("One-Click"), które stawiają us�
 | Narzędzie | Zastępuje | Opis |
 | :--- | :--- | :--- |
 | **NocoDB** | Airtable | Twoja baza danych jako Arkusz Kalkulacyjny. Trzymaj tu dane klientów, zamówienia, projekty. |
-| **Stirling-PDF** | Adobe Acrobat Pro | Edytuj, łącz, dziel i podpisuj PDF-y w przeglądarce. Bez wysyłania plików w świat. |
+| **Stirling-PDF** | Adobe Acrobat Pro | Edytuj, łącz, dziel i podpisuj PDF-y w przeglądarce. Bez wysyłania plików w świat. ⚠️ **Wymaga 2GB RAM (Mikrus 2.0+)** |
+| **Gotenberg** | - | API do konwersji dokumentów (HTML→PDF, DOCX→PDF). Lekka alternatywa dla Stirling-PDF (~150MB RAM). |
 | **Vaultwarden** | 1Password / LastPass | Bezpieczny sejf na hasła dla całej firmy. |
 | **LinkStack** | Linktree | Twoja wizytówka "Link in Bio" z panelem admina. |
 | **LittleLink** | Linktree | Wizytówka "Link in Bio" – wersja ultra-lekka (czysty HTML). |
@@ -480,7 +481,12 @@ A:
 - n8n (z zewnętrzną bazą): ~300-400MB
 - Typebot: ~300MB
 - Listmonk: ~50MB
-*Rekomendacja:* Mikrus 3.0 (1GB RAM) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu (n8n + Typebot + GateFlow) zalecany Mikrus 4.0 (2GB RAM).
+- Uptime Kuma: ~250MB
+- Vaultwarden: ~50MB
+- Gotenberg: ~150MB (API do konwersji dokumentów - lekka alternatywa dla Stirling-PDF)
+- ⚠️ **Stirling-PDF: ~500MB+** (Java/Spring Boot - wymaga minimum Mikrus 2.0!)
+
+*Rekomendacja:* Mikrus 3.0 (1GB RAM) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu (n8n + Typebot + GateFlow) zalecany Mikrus 4.0 (2GB RAM). **Stirling-PDF instaluj tylko na Mikrus 2.0+ (2GB RAM).** Na Mikrus 1.0 użyj **Gotenberg** zamiast Stirling-PDF.
 
 **Q: Co z bazą danych?**
 A: Większość skryptów (n8n, Umami, Listmonk) poprosi o dane do Postgresa. **NIE INSTALUJ POSTGRESA NA MIKRUSIE 3.0.** Kup "Cegłę" bazy danych na Mikrusie (29 zł/rok) lub użyj darmowego tieru w chmurze (Neon, Supabase). To oszczędza mnóstwo zasobów.

@@ -24,15 +24,30 @@ echo "--- 2. Installing 'mikrus-expose' Helper Tool ---"
 # Creating a lazy wrapper script to add domains easily
 cat <<'EOF' | sudo tee /usr/local/bin/mikrus-expose > /dev/null
 #!/bin/bash
-# Usage: mikrus-expose <domain> <internal_port>
-# Example: mikrus-expose n8n.kamil.pl 5678
+# Usage: mikrus-expose <domain> <port_or_path> [mode]
+# Modes:
+#   proxy (default) - reverse_proxy localhost:PORT
+#   static          - file_server from PATH
+#
+# Examples:
+#   mikrus-expose n8n.example.pl 5678              # proxy mode
+#   mikrus-expose static.example.pl /var/www/app static  # static mode
 
 DOMAIN=$1
-PORT=$2
+PORT_OR_PATH=$2
+MODE="${3:-proxy}"
 CADDYFILE="/etc/caddy/Caddyfile"
 
-if [ -z "$DOMAIN" ] || [ -z "$PORT" ]; then
-    echo "Usage: mikrus-expose <domain> <internal_port>"
+if [ -z "$DOMAIN" ] || [ -z "$PORT_OR_PATH" ]; then
+    echo "Usage: mikrus-expose <domain> <port_or_path> [mode]"
+    echo ""
+    echo "Modes:"
+    echo "  proxy  - reverse_proxy localhost:PORT (default)"
+    echo "  static - file_server from PATH"
+    echo ""
+    echo "Examples:"
+    echo "  mikrus-expose n8n.example.pl 5678"
+    echo "  mikrus-expose static.example.pl /var/www/app static"
     exit 1
 fi
 
@@ -42,16 +57,25 @@ if grep -q "$DOMAIN" "$CADDYFILE"; then
     exit 1
 fi
 
-echo "🚀 Exposing $DOMAIN -> localhost:$PORT"
-
-# Append config block
-# reverse_proxy is the simplest directive
-cat <<CONFIG | sudo tee -a "$CADDYFILE"
+if [ "$MODE" = "static" ]; then
+    echo "🚀 Exposing $DOMAIN -> $PORT_OR_PATH (static files)"
+    cat <<CONFIG | sudo tee -a "$CADDYFILE"
 
 $DOMAIN {
-    reverse_proxy localhost:$PORT
+    root * $PORT_OR_PATH
+    file_server
+    header Access-Control-Allow-Origin "*"
 }
 CONFIG
+else
+    echo "🚀 Exposing $DOMAIN -> localhost:$PORT_OR_PATH (reverse proxy)"
+    cat <<CONFIG | sudo tee -a "$CADDYFILE"
+
+$DOMAIN {
+    reverse_proxy localhost:$PORT_OR_PATH
+}
+CONFIG
+fi
 
 # Reload Caddy to apply changes (zero downtime)
 sudo systemctl reload caddy

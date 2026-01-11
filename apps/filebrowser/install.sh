@@ -4,26 +4,40 @@
 # Web-based File Manager (Google Drive alternative).
 # Lightweight (Go), secure, and perfect for managing static sites.
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=40  # filebrowser/filebrowser:latest (bardzo lekki)
+#
+# Opcjonalne zmienne środowiskowe:
+#   DOMAIN - domena dla File Manager (lub DOMAIN_ADMIN)
+#   DOMAIN_PUBLIC - domena dla public static hosting
 
 set -e
 
 APP_NAME="filebrowser"
 STACK_DIR="/opt/stacks/$APP_NAME"
-# We separate data storage to easily share it with Caddy or other apps
-DATA_DIR="/var/www/public" 
-PORT=8095
+DATA_DIR="/var/www/public"
+PORT=${PORT:-8095}
 
 echo "--- 📂 FileBrowser Setup ---"
 echo "This will install a web file manager."
 echo "Files will be stored in: $DATA_DIR"
 
-read -p "Domain for File Manager (e.g., files.kamil.pl): " DOMAIN_ADMIN
-read -p "Domain for Public Hosting (e.g., static.kamil.pl) [Optional, press Enter to skip]: " DOMAIN_PUBLIC
+# Domain for admin panel
+DOMAIN_ADMIN="${DOMAIN_ADMIN:-$DOMAIN}"
+if [ -n "$DOMAIN_ADMIN" ]; then
+    echo "✅ Admin Panel: $DOMAIN_ADMIN"
+else
+    echo "⚠️  Brak domeny - używam localhost"
+fi
+
+# Optional public hosting domain
+if [ -n "$DOMAIN_PUBLIC" ]; then
+    echo "✅ Public Hosting: $DOMAIN_PUBLIC"
+fi
 
 # 1. Prepare Directories
 sudo mkdir -p "$STACK_DIR"
 sudo mkdir -p "$DATA_DIR"
-# Set permissions so container can write (User 1000 is default inside)
 sudo chown -R 1000:1000 "$DATA_DIR"
 cd "$STACK_DIR"
 
@@ -32,7 +46,7 @@ touch filebrowser.db
 sudo chown 1000:1000 filebrowser.db
 
 # 3. Docker Compose
-cat <<EOF | sudo tee docker-compose.yaml
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 
 services:
   filebrowser:
@@ -71,16 +85,16 @@ else
 fi
 
 # 5. Caddy Configuration
-if command -v mikrus-expose &> /dev/null; then
-    # Admin Panel
-    sudo mikrus-expose "$DOMAIN_ADMIN" "$PORT"
-    
-    # Public Hosting (Optional)
-    if [ -n "$DOMAIN_PUBLIC" ]; then
-        CADDYFILE="/etc/caddy/Caddyfile"
-        if ! grep -q "$DOMAIN_PUBLIC" "$CADDYFILE"; then
-            echo "🚀 Configuring Public Hosting at $DOMAIN_PUBLIC..."
-            cat <<CONFIG | sudo tee -a "$CADDYFILE"
+if [ -n "$DOMAIN_ADMIN" ] && [[ "$DOMAIN_ADMIN" != *"pending"* ]] && [[ "$DOMAIN_ADMIN" != *"cytrus"* ]]; then
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN_ADMIN" "$PORT"
+
+        # Public Hosting (Optional)
+        if [ -n "$DOMAIN_PUBLIC" ]; then
+            CADDYFILE="/etc/caddy/Caddyfile"
+            if ! grep -q "$DOMAIN_PUBLIC" "$CADDYFILE"; then
+                echo "🚀 Configuring Public Hosting at $DOMAIN_PUBLIC..."
+                cat <<CONFIG | sudo tee -a "$CADDYFILE"
 
 $DOMAIN_PUBLIC {
     root * $DATA_DIR
@@ -88,16 +102,23 @@ $DOMAIN_PUBLIC {
     header Access-Control-Allow-Origin "*"
 }
 CONFIG
-            sudo systemctl reload caddy
+                sudo systemctl reload caddy
+            fi
         fi
     fi
 fi
 
-echo "✅ FileBrowser started at https://$DOMAIN_ADMIN"
+echo ""
+echo "✅ FileBrowser started!"
+if [ -n "$DOMAIN_ADMIN" ]; then
+    echo "🔗 Admin Panel: https://$DOMAIN_ADMIN"
+else
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+fi
 echo "👤 Default Login: admin / admin"
 echo "⚠️  CHANGE PASSWORD IMMEDIATELY!"
-echo ""
 if [ -n "$DOMAIN_PUBLIC" ]; then
+    echo ""
     echo "🌍 Public Hosting active: https://$DOMAIN_PUBLIC"
     echo "   Files uploaded to root folder will be visible here."
 fi

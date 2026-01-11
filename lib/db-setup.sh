@@ -4,44 +4,93 @@
 # Używany przez skrypty instalacyjne do konfiguracji bazy danych.
 # Author: Paweł (Lazy Engineer)
 #
-# NOWY FLOW (fazy):
-#   1. ask_database()    - zbiera wybór użytkownika (bez API)
-#   2. fetch_database()  - pobiera dane z API (ciężka operacja)
+# NOWY FLOW z CLI:
+#   1. parse_args() + load_defaults()  - z cli-parser.sh
+#   2. ask_database()    - sprawdza flagi, pyta tylko gdy brak
+#   3. fetch_database()  - pobiera dane z API (jeśli shared)
 #
-# STARY FLOW (kompatybilność wsteczna):
-#   setup_database() - robi wszystko na raz
+# Flagi CLI:
+#   --db-source=shared|custom
+#   --db-host=HOST --db-port=PORT --db-name=NAME
+#   --db-schema=SCHEMA --db-user=USER --db-pass=PASS
 #
 # Po wywołaniu dostępne zmienne:
-#   $DB_HOST, $DB_PORT, $DB_NAME, $DB_USER, $DB_PASS, $DB_SOURCE
+#   $DB_HOST, $DB_PORT, $DB_NAME, $DB_SCHEMA, $DB_USER, $DB_PASS, $DB_SOURCE
 
-# Kolory
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Załaduj cli-parser jeśli nie załadowany
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! type ask_if_empty &>/dev/null; then
+    source "$SCRIPT_DIR/cli-parser.sh"
+fi
+
+# Kolory (jeśli nie zdefiniowane przez cli-parser)
+RED="${RED:-\033[0;31m}"
+GREEN="${GREEN:-\033[0;32m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+BLUE="${BLUE:-\033[0;34m}"
+NC="${NC:-\033[0m}"
 
 # Zmienne eksportowane (nie resetuj jeśli już ustawione)
 export DB_HOST="${DB_HOST:-}"
 export DB_PORT="${DB_PORT:-}"
 export DB_NAME="${DB_NAME:-}"
-export DB_SCHEMA="${DB_SCHEMA:-}"  # schemat PostgreSQL (izolacja tabel per aplikacja)
+export DB_SCHEMA="${DB_SCHEMA:-}"
 export DB_USER="${DB_USER:-}"
 export DB_PASS="${DB_PASS:-}"
-export DB_SOURCE="${DB_SOURCE:-}"  # "shared" lub "custom"
+export DB_SOURCE="${DB_SOURCE:-}"
 
 # Aplikacje wymagające pgcrypto (nie działają ze współdzieloną bazą Mikrusa)
 # n8n od wersji 1.121+ wymaga gen_random_uuid() które potrzebuje pgcrypto lub PostgreSQL 13+
 REQUIRES_PGCRYPTO="umami n8n"
 
 # =============================================================================
-# FAZA 1: Zbieranie informacji (bez API)
+# FAZA 1: Zbieranie informacji (respektuje flagi CLI)
 # =============================================================================
 
 ask_database() {
     local DB_TYPE="${1:-postgres}"
     local APP_NAME="${2:-}"
 
+    # Sprawdź czy aplikacja wymaga pgcrypto
+    local SHARED_BLOCKED=false
+    if [[ " $REQUIRES_PGCRYPTO " == *" $APP_NAME "* ]]; then
+        SHARED_BLOCKED=true
+    fi
+
+    # Jeśli DB_SOURCE już ustawione z CLI
+    if [ -n "$DB_SOURCE" ]; then
+        # Walidacja: shared zablokowane dla niektórych apps
+        if [ "$DB_SOURCE" = "shared" ] && [ "$SHARED_BLOCKED" = true ]; then
+            echo -e "${RED}Błąd: $APP_NAME wymaga dedykowanej bazy (--db-source=custom)${NC}" >&2
+            echo "   Współdzielona baza Mikrus nie obsługuje pgcrypto." >&2
+            echo "   Wykup dedykowany PostgreSQL: https://mikr.us/panel/?a=cloud" >&2
+            return 1
+        fi
+
+        # Walidacja: custom wymaga pełnych danych
+        if [ "$DB_SOURCE" = "custom" ]; then
+            if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
+                if [ "$YES_MODE" = true ]; then
+                    echo -e "${RED}Błąd: --db-source=custom wymaga --db-host, --db-name, --db-user, --db-pass${NC}" >&2
+                    return 1
+                fi
+                # Tryb interaktywny - dopytaj o brakujące
+                ask_custom_db "$DB_TYPE"
+                return $?
+            fi
+        fi
+
+        echo -e "${GREEN}✅ Baza danych: $DB_SOURCE${NC}"
+        return 0
+    fi
+
+    # Tryb --yes bez --db-source = błąd
+    if [ "$YES_MODE" = true ]; then
+        echo -e "${RED}Błąd: --db-source jest wymagane w trybie --yes${NC}" >&2
+        return 1
+    fi
+
+    # Tryb interaktywny
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║  🗄️  Konfiguracja bazy danych ($DB_TYPE)"
@@ -50,10 +99,7 @@ ask_database() {
     echo "Gdzie ma być baza danych?"
     echo ""
 
-    # Sprawdź czy aplikacja wymaga pgcrypto
-    local SHARED_BLOCKED=false
-    if [[ " $REQUIRES_PGCRYPTO " == *" $APP_NAME "* ]]; then
-        SHARED_BLOCKED=true
+    if [ "$SHARED_BLOCKED" = true ]; then
         echo "  1) 🚫 Współdzielona baza Mikrus (NIEDOSTĘPNA)"
         echo "     $APP_NAME wymaga rozszerzenia pgcrypto"
         echo ""
@@ -107,31 +153,27 @@ ask_custom_db() {
     echo ""
 
     if [ "$DB_TYPE" = "postgres" ]; then
-        read -p "Host (np. mws02.mikr.us): " DB_HOST
-        read -p "Port [5432]: " DB_PORT
-        DB_PORT="${DB_PORT:-5432}"
-        read -p "Nazwa bazy: " DB_NAME
-        read -p "Schemat [public]: " DB_SCHEMA
-        DB_SCHEMA="${DB_SCHEMA:-public}"
-        read -p "Użytkownik: " DB_USER
-        read -sp "Hasło: " DB_PASS
-        echo ""
+        ask_if_empty DB_HOST "Host (np. mws02.mikr.us)"
+        ask_if_empty DB_PORT "Port" "5432"
+        ask_if_empty DB_NAME "Nazwa bazy"
+        ask_if_empty DB_SCHEMA "Schemat" "public"
+        ask_if_empty DB_USER "Użytkownik"
+        ask_if_empty DB_PASS "Hasło" "" true
+
     elif [ "$DB_TYPE" = "mysql" ]; then
-        read -p "Host (np. mysql.example.com): " DB_HOST
-        read -p "Port [3306]: " DB_PORT
-        DB_PORT="${DB_PORT:-3306}"
-        read -p "Nazwa bazy: " DB_NAME
-        read -p "Użytkownik: " DB_USER
-        read -sp "Hasło: " DB_PASS
-        echo ""
+        ask_if_empty DB_HOST "Host (np. mysql.example.com)"
+        ask_if_empty DB_PORT "Port" "3306"
+        ask_if_empty DB_NAME "Nazwa bazy"
+        ask_if_empty DB_USER "Użytkownik"
+        ask_if_empty DB_PASS "Hasło" "" true
+
     elif [ "$DB_TYPE" = "mongo" ]; then
-        read -p "Host (np. mongo.example.com): " DB_HOST
-        read -p "Port [27017]: " DB_PORT
-        DB_PORT="${DB_PORT:-27017}"
-        read -p "Nazwa bazy: " DB_NAME
-        read -p "Użytkownik: " DB_USER
-        read -sp "Hasło: " DB_PASS
-        echo ""
+        ask_if_empty DB_HOST "Host (np. mongo.example.com)"
+        ask_if_empty DB_PORT "Port" "27017"
+        ask_if_empty DB_NAME "Nazwa bazy"
+        ask_if_empty DB_USER "Użytkownik"
+        ask_if_empty DB_PASS "Hasło" "" true
+
     else
         echo -e "${RED}❌ Nieznany typ bazy: $DB_TYPE${NC}"
         return 1
@@ -158,7 +200,7 @@ ask_custom_db() {
 
 fetch_database() {
     local DB_TYPE="${1:-postgres}"
-    local SSH_ALIAS="${2:-mikrus}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
 
     # Jeśli custom - dane już są, nic nie robimy
     if [ "$DB_SOURCE" = "custom" ]; then
@@ -178,6 +220,18 @@ fetch_database() {
 fetch_shared_db() {
     local DB_TYPE="$1"
     local SSH_ALIAS="$2"
+
+    # Dry-run mode
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${BLUE}[dry-run] Pobieram dane bazy z API Mikrusa (ssh $SSH_ALIAS)${NC}"
+        DB_HOST="[dry-run-host]"
+        DB_PORT="5432"
+        DB_NAME="[dry-run-db]"
+        DB_USER="[dry-run-user]"
+        DB_PASS="[dry-run-pass]"
+        export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS
+        return 0
+    fi
 
     echo "🔑 Pobieram dane bazy z API Mikrusa..."
 
@@ -275,12 +329,31 @@ fetch_shared_db() {
 }
 
 # =============================================================================
+# HELPER: Podsumowanie konfiguracji DB
+# =============================================================================
+
+show_db_summary() {
+    echo ""
+    echo "📋 Konfiguracja bazy danych:"
+    echo "   Źródło: $DB_SOURCE"
+    echo "   Host:   $DB_HOST"
+    echo "   Port:   $DB_PORT"
+    echo "   Baza:   $DB_NAME"
+    if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
+        echo "   Schema: $DB_SCHEMA"
+    fi
+    echo "   User:   $DB_USER"
+    echo "   Pass:   ****${DB_PASS: -4}"
+    echo ""
+}
+
+# =============================================================================
 # STARY FLOW (kompatybilność wsteczna)
 # =============================================================================
 
 setup_database() {
     local DB_TYPE="${1:-postgres}"
-    local SSH_ALIAS="${2:-mikrus}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
     local APP_NAME="${3:-}"
 
     # Faza 1: zbierz dane
@@ -294,14 +367,7 @@ setup_database() {
     fi
 
     # Pokaż podsumowanie
-    echo ""
-    echo "📋 Konfiguracja bazy danych:"
-    echo "   Host: $DB_HOST"
-    echo "   Port: $DB_PORT"
-    echo "   Baza: $DB_NAME"
-    echo "   User: $DB_USER"
-    echo "   Pass: ****${DB_PASS: -4}"
-    echo ""
+    show_db_summary
 
     return 0
 }
@@ -335,6 +401,7 @@ export -f ask_database
 export -f ask_custom_db
 export -f fetch_database
 export -f fetch_shared_db
+export -f show_db_summary
 export -f setup_database
 export -f setup_shared_db
 export -f setup_custom_db

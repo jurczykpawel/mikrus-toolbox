@@ -9,90 +9,80 @@ set -e
 
 APP_NAME="cap"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=3000
+PORT=${PORT:-3000}
 
 echo "--- 🎬 Cap Setup (Loom Alternative) ---"
 echo "Cap pozwala nagrywać ekran i udostępniać wideo."
 echo ""
-echo "⚠️  UWAGA: Cap wymaga dużo zasobów!"
-echo "   - MySQL (baza danych)"
-echo "   - S3 Storage (na wideo)"
-echo "   - Zalecane: Mikrus 4.0 (2GB RAM) lub wyższy"
-echo ""
+
+# Wymagane: DOMAIN
+if [ -z "$DOMAIN" ]; then
+    echo "❌ Brak wymaganej zmiennej: DOMAIN"
+    echo ""
+    echo "   Użycie (zewnętrzna baza + zewnętrzny S3):"
+    echo "   DB_HOST=mysql.mikr.us DB_PORT=3306 DB_NAME=cap \\"
+    echo "   DB_USER=myuser DB_PASS=secret \\"
+    echo "   S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com \\"
+    echo "   S3_PUBLIC_URL=https://cdn.example.com \\"
+    echo "   S3_REGION=auto S3_BUCKET=cap-videos \\"
+    echo "   S3_ACCESS_KEY=xxx S3_SECRET_KEY=yyy \\"
+    echo "   DOMAIN=cap.example.com ./install.sh"
+    echo ""
+    echo "   Użycie (lokalna baza + lokalny MinIO):"
+    echo "   MYSQL_ROOT_PASS=secret USE_LOCAL_MINIO=true \\"
+    echo "   DOMAIN=cap.example.com ./install.sh"
+    exit 1
+fi
+
+echo "✅ Domena: $DOMAIN"
 
 # 1. Konfiguracja bazy MySQL
 echo "=== Konfiguracja MySQL ==="
 
-# Database credentials (from environment or prompt)
 if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
-    echo "✅ Używam danych bazy z konfiguracji:"
+    # Zewnętrzna baza MySQL
+    echo "✅ Używam zewnętrznej bazy MySQL:"
     echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
     DB_PORT=${DB_PORT:-3306}
     DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
     USE_LOCAL_MYSQL="false"
+elif [ -n "$MYSQL_ROOT_PASS" ]; then
+    # Lokalna baza MySQL
+    echo "✅ Używam lokalnej bazy MySQL (kontener)"
+    MYSQL_DB="cap"
+    DATABASE_URL="mysql://root:${MYSQL_ROOT_PASS}@cap-mysql:3306/${MYSQL_DB}"
+    USE_LOCAL_MYSQL="true"
 else
-    echo "1) Zewnętrzna baza MySQL (zalecane dla Mikrus)"
-    echo "2) Lokalna baza MySQL (zje więcej RAM)"
-    read -p "Wybierz [1-2]: " DB_MODE
-
-    if [ "$DB_MODE" == "1" ]; then
-        read -p "MySQL Host (np. mysql.mikr.us): " MYSQL_HOST
-        read -p "MySQL Port (default 3306): " MYSQL_PORT
-        MYSQL_PORT=${MYSQL_PORT:-3306}
-        read -p "MySQL Database: " MYSQL_DB
-        read -p "MySQL User: " MYSQL_USER
-        read -s -p "MySQL Password: " MYSQL_PASS
-        echo ""
-        DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASS}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}"
-        USE_LOCAL_MYSQL="false"
-    else
-        read -s -p "Ustaw hasło root dla MySQL: " MYSQL_ROOT_PASS
-        echo ""
-        MYSQL_DB="cap"
-        DATABASE_URL="mysql://root:${MYSQL_ROOT_PASS}@cap-mysql:3306/${MYSQL_DB}"
-        USE_LOCAL_MYSQL="true"
-    fi
+    echo "❌ Brak konfiguracji MySQL!"
+    echo "   Opcja 1 (zewnętrzna): DB_HOST, DB_USER, DB_PASS, DB_NAME"
+    echo "   Opcja 2 (lokalna): MYSQL_ROOT_PASS"
+    exit 1
 fi
 
-# 2. Wybór trybu storage
+# 2. Konfiguracja S3 Storage
 echo ""
 echo "=== Konfiguracja Storage (S3) ==="
-echo "1) Zewnętrzny S3 (AWS, Cloudflare R2, Wasabi - zalecane)"
-echo "2) Lokalny MinIO (zje dysk i RAM)"
-read -p "Wybierz [1-2]: " S3_MODE
 
-if [ "$S3_MODE" == "1" ]; then
-    read -p "S3 Endpoint URL (np. https://xxx.r2.cloudflarestorage.com): " S3_ENDPOINT
-    read -p "S3 Public URL (do odczytu wideo, może być CDN): " S3_PUBLIC_URL
-    read -p "S3 Region (np. auto dla R2, us-east-1 dla AWS): " S3_REGION
-    read -p "S3 Bucket Name: " S3_BUCKET
-    read -p "S3 Access Key: " S3_ACCESS_KEY
-    read -s -p "S3 Secret Key: " S3_SECRET_KEY
-    echo ""
+if [ -n "$S3_ENDPOINT" ] && [ -n "$S3_ACCESS_KEY" ]; then
+    # Zewnętrzny S3
+    echo "✅ Używam zewnętrznego S3:"
+    echo "   Endpoint: $S3_ENDPOINT | Bucket: $S3_BUCKET"
     USE_LOCAL_MINIO="false"
-else
+elif [ "$USE_LOCAL_MINIO" == "true" ]; then
+    # Lokalny MinIO
+    echo "✅ Używam lokalnego MinIO (kontener)"
     S3_ACCESS_KEY="capS3root"
     S3_SECRET_KEY="capS3root"
     S3_BUCKET="cap-videos"
     S3_REGION="us-east-1"
     S3_ENDPOINT="http://cap-minio:9000"
-    S3_PUBLIC_URL=""  # Will be set after domain input
-    USE_LOCAL_MINIO="true"
-fi
-
-# 3. Domena i bezpieczeństwo
-echo ""
-echo "=== Konfiguracja Domeny ==="
-# Domain (from environment or prompt)
-if [ -n "$DOMAIN" ]; then
-    echo "✅ Używam domeny z konfiguracji: $DOMAIN"
-else
-    read -p "Domena dla Cap (np. cap.mojafirma.pl): " DOMAIN
-fi
-
-if [ "$USE_LOCAL_MINIO" == "true" ]; then
     S3_PUBLIC_URL="https://${DOMAIN}:3902"
     echo "⚠️  MinIO będzie dostępny na porcie 3902"
+else
+    echo "❌ Brak konfiguracji S3!"
+    echo "   Opcja 1 (zewnętrzny): S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET, S3_REGION, S3_PUBLIC_URL"
+    echo "   Opcja 2 (lokalny): USE_LOCAL_MINIO=true"
+    exit 1
 fi
 
 # Generowanie secretów

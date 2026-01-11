@@ -4,6 +4,14 @@
 # Conversational Form Builder (Open Source Typeform Alternative).
 # Requires External PostgreSQL.
 # Author: Paweł (Lazy Engineer)
+#
+# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
+#   DOMAIN (opcjonalne - używane do generowania builder.$DOMAIN i $DOMAIN)
+#
+# Opcjonalne zmienne (jeśli chcesz własne domeny):
+#   DOMAIN_BUILDER - domena dla Builder UI
+#   DOMAIN_VIEWER - domena dla Viewer
 
 set -e
 
@@ -15,29 +23,35 @@ PORT_VIEWER=8082
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
 
-# Database credentials (from environment or prompt)
-if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
-    echo "✅ Używam danych bazy z konfiguracji:"
-    echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
-    DB_PORT=${DB_PORT:-5432}
+# Validate database credentials
+if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
+    echo "❌ Błąd: Brak danych bazy danych!"
+    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    exit 1
+fi
+
+echo "✅ Dane bazy danych:"
+echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
+
+DB_PORT=${DB_PORT:-5432}
+
+# Domain configuration
+# Typebot requires 2 domains: Builder and Viewer
+if [ -n "$DOMAIN_BUILDER" ] && [ -n "$DOMAIN_VIEWER" ]; then
+    # Explicit domains provided
+    echo "✅ Builder: $DOMAIN_BUILDER"
+    echo "✅ Viewer:  $DOMAIN_VIEWER"
+elif [ -n "$DOMAIN" ]; then
+    # Auto-generate from base domain
+    DOMAIN_BUILDER="builder.${DOMAIN#builder.}"  # Remove 'builder.' prefix if present
+    DOMAIN_VIEWER="${DOMAIN#builder.}"           # Remove 'builder.' prefix if present
+    echo "✅ Builder: $DOMAIN_BUILDER (auto)"
+    echo "✅ Viewer:  $DOMAIN_VIEWER (auto)"
 else
-    echo "📝 Podaj dane bazy PostgreSQL:"
-    read -p "Database Host: " DB_HOST
-    read -p "Database Name: " DB_NAME
-    read -p "Database User: " DB_USER
-    read -s -p "Database Password: " DB_PASS
-    DB_PORT=5432
-    echo ""
+    echo "⚠️  Brak domen - używam localhost"
+    DOMAIN_BUILDER=""
+    DOMAIN_VIEWER=""
 fi
-echo ""
-echo "--- Domains ---"
-echo "Typebot wymaga dwóch domen: Builder (do tworzenia) i Viewer (do wyświetlania)"
-# Domain hints from environment
-if [ -n "$DOMAIN" ]; then
-    echo "💡 Sugestia bazująca na konfiguracji: builder.$DOMAIN i $DOMAIN"
-fi
-read -p "Builder Domain (e.g., builder.bot.kamil.pl): " DOMAIN_BUILDER
-read -p "Viewer Domain (e.g., bot.kamil.pl): " DOMAIN_VIEWER
 
 # Generate secret
 ENCRYPTION_SECRET=$(openssl rand -hex 32)
@@ -45,7 +59,18 @@ ENCRYPTION_SECRET=$(openssl rand -hex 32)
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-cat <<EOF | sudo tee docker-compose.yaml
+# Set URLs based on domain availability
+if [ -n "$DOMAIN_BUILDER" ]; then
+    NEXTAUTH_URL="https://$DOMAIN_BUILDER"
+    VIEWER_URL="https://$DOMAIN_VIEWER"
+    ADMIN_EMAIL="admin@$DOMAIN_BUILDER"
+else
+    NEXTAUTH_URL="http://localhost:$PORT_BUILDER"
+    VIEWER_URL="http://localhost:$PORT_VIEWER"
+    ADMIN_EMAIL="admin@localhost"
+fi
+
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 
 services:
   typebot-builder:
@@ -55,10 +80,10 @@ services:
       - "$PORT_BUILDER:3000"
     environment:
       - DATABASE_URL=postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME
-      - NEXTAUTH_URL=https://$DOMAIN_BUILDER
-      - NEXT_PUBLIC_VIEWER_URL=https://$DOMAIN_VIEWER
+      - NEXTAUTH_URL=$NEXTAUTH_URL
+      - NEXT_PUBLIC_VIEWER_URL=$VIEWER_URL
       - ENCRYPTION_SECRET=$ENCRYPTION_SECRET
-      - ADMIN_EMAIL=admin@$DOMAIN_BUILDER # First user is admin
+      - ADMIN_EMAIL=$ADMIN_EMAIL
     depends_on:
       - typebot-viewer
     deploy:
@@ -73,8 +98,8 @@ services:
       - "$PORT_VIEWER:3000"
     environment:
       - DATABASE_URL=postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME
-      - NEXTAUTH_URL=https://$DOMAIN_BUILDER
-      - NEXT_PUBLIC_VIEWER_URL=https://$DOMAIN_VIEWER
+      - NEXTAUTH_URL=$NEXTAUTH_URL
+      - NEXT_PUBLIC_VIEWER_URL=$VIEWER_URL
       - ENCRYPTION_SECRET=$ENCRYPTION_SECRET
     deploy:
       resources:
@@ -85,7 +110,7 @@ EOF
 
 sudo docker compose up -d
 
-# Health check (sprawdź oba porty)
+# Health check (check both ports)
 source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT_BUILDER" 60 || { echo "❌ Builder nie wystartował!"; exit 1; }
@@ -100,13 +125,21 @@ else
     fi
 fi
 
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
-    sudo mikrus-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"
+# Caddy/HTTPS - only for real domains
+if [ -n "$DOMAIN_BUILDER" ] && [[ "$DOMAIN_BUILDER" != *"pending"* ]] && [[ "$DOMAIN_BUILDER" != *"cytrus"* ]]; then
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
+        sudo mikrus-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"
+    fi
 fi
 
 echo ""
 echo "✅ Typebot started!"
-echo "   Builder: https://$DOMAIN_BUILDER"
-echo "   Viewer:  https://$DOMAIN_VIEWER"
+if [ -n "$DOMAIN_BUILDER" ]; then
+    echo "   Builder: https://$DOMAIN_BUILDER"
+    echo "   Viewer:  https://$DOMAIN_VIEWER"
+else
+    echo "   Builder: ssh -L $PORT_BUILDER:localhost:$PORT_BUILDER <server>"
+    echo "   Viewer:  ssh -L $PORT_VIEWER:localhost:$PORT_VIEWER <server>"
+fi
 echo "👉 Note: S3 storage for file uploads is NOT configured in this lite setup."

@@ -4,24 +4,54 @@
 # Lightweight Bitwarden server written in Rust.
 # Secure password management for your business.
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=330  # vaultwarden/server:latest
+#
+# Opcjonalne zmienne środowiskowe:
+#   DOMAIN - domena dla Vaultwarden
+#   ADMIN_TOKEN - token dla panelu admina (jeśli brak, generowany automatycznie)
 
 set -e
 
 APP_NAME="vaultwarden"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=8088
+PORT=${PORT:-8088}
 
 echo "--- 🔐 Vaultwarden Setup ---"
 echo "NOTE: Once installed, create your account immediately."
 echo "Then, restart the container with SIGNUPS_ALLOWED=false to secure it."
 echo ""
-read -p "Domain (e.g., vault.kamil.pl): " DOMAIN
-read -p "Admin Token (for admin panel, optional but recommended): " ADMIN_TOKEN
+
+# Domain
+if [ -n "$DOMAIN" ]; then
+    echo "✅ Domena: $DOMAIN"
+else
+    echo "⚠️  Brak domeny - używam localhost"
+fi
+
+# Admin token
+if [ -z "$ADMIN_TOKEN" ]; then
+    ADMIN_TOKEN=$(openssl rand -hex 32)
+    echo "✅ Wygenerowano Admin Token"
+else
+    echo "✅ Używam Admin Token z konfiguracji"
+fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-cat <<EOF | sudo tee docker-compose.yaml
+# Save admin token for reference
+echo "$ADMIN_TOKEN" | sudo tee .admin_token > /dev/null
+sudo chmod 600 .admin_token
+
+# Set domain URL
+if [ -n "$DOMAIN" ]; then
+    DOMAIN_URL="https://$DOMAIN"
+else
+    DOMAIN_URL="http://localhost:$PORT"
+fi
+
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 
 services:
   vaultwarden:
@@ -30,10 +60,9 @@ services:
     ports:
       - "$PORT:80"
     environment:
-      - DOMAIN=https://$DOMAIN
-      - SIGNUPS_ALLOWED=true 
+      - DOMAIN=$DOMAIN_URL
+      - SIGNUPS_ALLOWED=true
       - ADMIN_TOKEN=$ADMIN_TOKEN
-      # Websockets enabled for sync
       - WEBSOCKET_ENABLED=true
     volumes:
       - ./data:/data
@@ -59,12 +88,24 @@ else
     fi
 fi
 
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
+# Caddy/HTTPS - only for real domains
+if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN" "$PORT"
+    fi
 fi
 
 echo ""
-echo "✅ Vaultwarden started at https://$DOMAIN"
+echo "✅ Vaultwarden started!"
+if [ -n "$DOMAIN" ]; then
+    echo "🔗 Open https://$DOMAIN"
+else
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+fi
+echo ""
+echo "   Admin panel: $DOMAIN_URL/admin"
+echo "   Admin token zapisany w: $STACK_DIR/.admin_token"
+echo ""
 echo "⚠️  ACTION REQUIRED:"
 echo "1. Create your account NOW."
 echo "2. Edit docker-compose.yaml and set SIGNUPS_ALLOWED=false"

@@ -2,51 +2,79 @@
 
 # Mikrus Toolbox - Cookie Hub (Klaro!)
 # Centralized Cookie Consent Manager for all your domains.
-# Uses NPM to fetch Klaro, Caddy to serve it.
-# Author: Paweł (Lazy Engineer)
+# Supports both Docker (Cytrus) and Caddy (Cloudflare) modes.
+# Author: Pawel (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=50  # nginx:alpine (only for Docker mode)
 
 set -e
 
 APP_NAME="cookie-hub"
-STACK_DIR="/var/www/$APP_NAME"
+echo "--- Cookie Hub Setup (Klaro!) ---"
+echo "Centralized server for Cookie Consent scripts."
 
-echo "--- 🍪 Cookie Hub Setup (Klaro!) ---"
-echo "This will create a central server for your Cookie Consent scripts."
-
-# 1. Prerequisites
-if ! command -v npm &> /dev/null; then
-    echo "❌ NPM not found. Running system/pm2-setup.sh first..."
-    bash "$(dirname "$0")/../../system/pm2-setup.sh"
-fi
-
-if ! command -v caddy &> /dev/null; then
-    echo "❌ Caddy not found. Please install it first."
+# Required: DOMAIN
+if [ -z "$DOMAIN" ]; then
+    echo "Brak wymaganej zmiennej: DOMAIN"
+    echo "   Uzycie: DOMAIN=assets.example.com ./install.sh"
     exit 1
 fi
+echo "Domena: $DOMAIN"
 
-read -p "Domain for Cookie Hub (e.g., assets.kamil.pl): " DOMAIN
+# Detect domain type: Cytrus (*.byst.re, *.mikr.us) vs Cloudflare
+is_cytrus_domain() {
+    case "$1" in
+        *.byst.re|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
-# 2. Prepare Directory
-sudo mkdir -p "$STACK_DIR"
-sudo chown $USER:$USER "$STACK_DIR"
+# Prerequisites: npm
+if ! command -v npm &> /dev/null; then
+    echo "NPM not found. Installing Node.js..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
+
+# Determine paths based on mode
+if is_cytrus_domain "$DOMAIN"; then
+    echo "Tryb: Cytrus (Docker + nginx)"
+    STACK_DIR="/opt/stacks/$APP_NAME"
+    PUBLIC_DIR="$STACK_DIR/public"
+    PORT="${PORT:-8091}"
+else
+    echo "Tryb: Cloudflare (Caddy file_server)"
+    STACK_DIR="/var/www/$APP_NAME"
+    PUBLIC_DIR="$STACK_DIR"
+fi
+
+# Setup directory
+sudo mkdir -p "$PUBLIC_DIR"
 cd "$STACK_DIR"
 
-# 3. Install Klaro via NPM
-echo "📦 Installing Klaro via NPM..."
-if [ ! -f "package.json" ]; then
+# Install Klaro via NPM (if not already installed)
+if [ ! -f "$PUBLIC_DIR/klaro.js" ]; then
+    echo "Installing Klaro via NPM..."
+
+    # Create temp directory for npm
+    TEMP_NPM=$(mktemp -d)
+    cd "$TEMP_NPM"
     npm init -y > /dev/null
+    npm install klaro
+
+    # Copy dist files to public
+    sudo cp node_modules/klaro/dist/klaro.js "$PUBLIC_DIR/"
+    sudo cp node_modules/klaro/dist/klaro.css "$PUBLIC_DIR/"
+
+    # Cleanup
+    cd /
+    rm -rf "$TEMP_NPM"
 fi
-npm install klaro
 
-# 4. Setup Public Folder
-mkdir -p public
-# Copy dist files to public to be served
-cp node_modules/klaro/dist/klaro.js public/
-cp node_modules/klaro/dist/klaro.css public/
-
-# 5. Create Configuration Template (WITH FULL POLISH TRANSLATION)
-echo "📝 Generating default config.js..."
-cat <<EOF > public/config.js
+# Create config template if not exists
+if [ ! -f "$PUBLIC_DIR/config.js" ]; then
+    echo "Generating default config.js..."
+    cat <<'CONFIGJS' | sudo tee "$PUBLIC_DIR/config.js" > /dev/null
 // Klaro Configuration - Centralized
 // Edit this file to add/remove services across ALL your sites.
 
@@ -60,94 +88,106 @@ var klaroConfig = {
     acceptAll: true,
     hideDeclineAll: false,
     hideLearnMore: false,
-    lang: 'pl', 
+    lang: 'pl',
 
-    // Translations
     translations: {
         pl: {
             consentModal: {
-                title: 'Szanujemy Twoją prywatność',
-                description: 'Używamy plików cookie i innych technologii, aby zapewnić najlepszą jakość korzystania z naszej strony.',
-                privacyPolicy: {
-                    name: 'polityką prywatności',
-                    text: 'Szczegóły znajdziesz w naszej {privacyPolicy}.'
-                }
+                title: 'Szanujemy Twoja prywatnosc',
+                description: 'Uzywamy plikow cookie i innych technologii, aby zapewnic najlepsza jakosc korzystania z naszej strony.'
             },
             consentNotice: {
-                changeDescription: 'Zmieniły się zasady przetwarzania danych od Twojej ostatniej wizyty.',
-                description: 'Używamy plików cookie do analizy ruchu i personalizacji treści.',
+                description: 'Uzywamy plikow cookie do analizy ruchu i personalizacji tresci.',
                 learnMore: 'Dostosuj zgody'
             },
             purposes: {
                 analytics: 'Analityka',
-                security: 'Bezpieczeństwo',
-                marketing: 'Marketing',
-                styling: 'Stylizacja'
+                security: 'Bezpieczenstwo',
+                marketing: 'Marketing'
             },
             ok: 'Zaakceptuj wszystko',
             save: 'Zapisz wybrane',
-            decline: 'Odrzuć',
-            close: 'Zamknij',
-            app: {
-                optOut: {
-                    title: '(Opcjonalne)',
-                    description: 'Ta aplikacja jest domyślnie wyłączona.'
-                },
-                required: {
-                    title: '(Wymagane)',
-                    description: 'Ta aplikacja jest zawsze wymagana.'
-                },
-                purposes: 'Cele',
-                purpose: 'Cel'
-            },
-            poweredBy: 'Zasilane przez Klaro!'
+            decline: 'Odrzuc'
         }
     },
 
-    // Services
     services: [
         {
             name: 'googleAnalytics',
             default: true,
             title: 'Google Analytics / Umami',
             purposes: ['analytics'],
-            cookies: [
-                [/^_ga/],
-                [/^_gid/],
-                [/^umami/]
-            ],
-            // If you use GTM or GA via script tag, add 'data-name="googleAnalytics"' to it
+            cookies: [[/^_ga/], [/^_gid/], [/^umami/]]
         }
     ]
 };
+CONFIGJS
+fi
+
+# Mode-specific setup
+if is_cytrus_domain "$DOMAIN"; then
+    # === CYTRUS MODE: Docker + nginx ===
+    cd "$STACK_DIR"
+
+    # Add CORS headers via nginx config
+    cat <<'NGINXCONF' | sudo tee "$STACK_DIR/nginx.conf" > /dev/null
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+
+    location / {
+        add_header Access-Control-Allow-Origin "*";
+        try_files $uri $uri/ =404;
+    }
+}
+NGINXCONF
+
+    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
+
+services:
+  cookie-hub:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "$PORT:80"
+    volumes:
+      - ./public:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
 EOF
 
-# 6. Configure Caddy
-CADDYFILE="/etc/caddy/Caddyfile"
+    sudo docker compose up -d
 
-if grep -q "$DOMAIN" "$CADDYFILE"; then
-    echo "⚠️  Domain $DOMAIN already in Caddyfile."
+    sleep 3
+    if curl -sf "http://localhost:$PORT/klaro.js" > /dev/null 2>&1; then
+        echo "Cookie Hub dziala na porcie $PORT"
+    else
+        echo "Blad uruchomienia!"; sudo docker compose logs --tail 10; exit 1
+    fi
+
+    echo ""
+    echo "Cookie Hub started!"
+    echo "   Port: $PORT"
+    echo "   Config: $PUBLIC_DIR/config.js"
+
 else
-    echo "🚀 Configuring Caddy..."
-    cat <<CONFIG | sudo tee -a "$CADDYFILE"
+    # === CLOUDFLARE MODE: Caddy ===
+    # Caddy will be configured by deploy.sh via mikrus-expose
+    echo "$PUBLIC_DIR" > /tmp/cookiehub_webroot
 
-$DOMAIN {
-    root * $STACK_DIR/public
-    file_server
-    header Access-Control-Allow-Origin "*"
-}
-CONFIG
-    sudo systemctl reload caddy
+    echo ""
+    echo "Cookie Hub installed!"
+    echo "   Config: $PUBLIC_DIR/config.js"
 fi
 
 echo ""
-echo "✅ Cookie Hub is ready at https://$DOMAIN"
-echo ""
-echo "👉 HOW TO USE:"
-echo "Paste this code into <head> of EVERY website you own:"
+echo "HOW TO USE:"
+echo "Paste this in <head> of every website:"
 echo ""
 echo "<link rel=\"stylesheet\" href=\"https://$DOMAIN/klaro.css\" />"
-echo "<script defer type=\"text/javascript\" src=\"https://$DOMAIN/config.js\"></script>"
-echo "<script defer type=\"text/javascript\" src=\"https://$DOMAIN/klaro.js\"></script>"
-echo ""
-echo "To edit services, just edit $STACK_DIR/public/config.js on the server."
+echo "<script defer src=\"https://$DOMAIN/config.js\"></script>"
+echo "<script defer src=\"https://$DOMAIN/klaro.js\"></script>"

@@ -4,12 +4,14 @@
 # Self-hosted push notifications server.
 # Send alerts from n8n directly to your phone.
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=50  # binwiederhier/ntfy:latest (bardzo lekki)
 
 set -e
 
 APP_NAME="ntfy"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=8085
+PORT=${PORT:-8085}
 
 echo "--- 🔔 ntfy Setup ---"
 

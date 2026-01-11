@@ -3,38 +3,39 @@
 # Mikrus Toolbox - Umami Analytics
 # Simple, privacy-friendly alternative to Google Analytics.
 #
-# ⚠️  WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
+# WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
 #     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
 #
 # Author: Paweł (Lazy Engineer)
+#
+# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
+#   DB_SCHEMA (opcjonalne - domyślnie public)
 
 set -e
 
 APP_NAME="umami"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=3000
+PORT=${PORT:-3000}
 
 echo "--- 📊 Umami Analytics Setup ---"
-echo "Requires PostgreSQL Database."
+echo "Requires PostgreSQL Database with pgcrypto extension."
 
-# Database credentials (from environment or prompt)
-if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
-    echo "✅ Używam danych bazy z konfiguracji:"
-    echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
-    DB_PORT=${DB_PORT:-5432}
-else
-    echo "📝 Podaj dane bazy PostgreSQL:"
-    read -p "Database Host: " DB_HOST
-    read -p "Database Name: " DB_NAME
-    read -p "Database User: " DB_USER
-    read -s -p "Database Password: " DB_PASS
-    DB_PORT=5432
-    echo ""
+# Validate database credentials
+if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
+    echo "❌ Błąd: Brak danych bazy danych!"
+    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    exit 1
 fi
 
-# ⚠️ Sprawdź czy to współdzielona baza Mikrusa (nie obsługuje pgcrypto)
-# Blokujemy tylko psql*.mikr.us (darmowa współdzielona), NIE mws*.mikr.us (płatna dedykowana)
+echo "✅ Dane bazy danych:"
+echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
+
+DB_PORT=${DB_PORT:-5432}
+DB_SCHEMA=${DB_SCHEMA:-public}
+
+# Check for shared Mikrus DB (doesn't support pgcrypto)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
@@ -43,28 +44,19 @@ if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo "║  Umami wymaga rozszerzenia 'pgcrypto', które nie jest          ║"
     echo "║  dostępne w darmowej bazie Mikrusa.                            ║"
     echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL (od 5 PLN/mies.)       ║"
+    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
     echo "║  https://mikr.us/panel/?a=cloud                                ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
 fi
 
-# Schema (opcjonalnie - dla izolacji w istniejącej bazie)
-echo ""
-echo "💡 Możesz użyć osobnego schematu (np. 'umami') żeby odizolować dane."
-echo "   Zostaw puste dla domyślnego schematu 'public'."
-read -p "Schema [public]: " DB_SCHEMA
-DB_SCHEMA="${DB_SCHEMA:-public}"
-
-# Buduj DATABASE_URL
+# Build DATABASE_URL
 if [ "$DB_SCHEMA" = "public" ]; then
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
 else
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME?schema=$DB_SCHEMA"
-    echo ""
-    echo "⚠️  Upewnij się że schemat '$DB_SCHEMA' istnieje w bazie!"
-    echo "   CREATE SCHEMA $DB_SCHEMA;"
+    echo "ℹ️  Używam schematu: $DB_SCHEMA"
 fi
 
 # Generate random hash salt
@@ -92,16 +84,14 @@ EOF
 
 sudo docker compose up -d
 
-# Health check - sprawdź czy kontener działa i app odpowiada
+# Health check
 source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
-
 if type wait_for_healthy &>/dev/null; then
     if ! wait_for_healthy "$APP_NAME" "$PORT" 60; then
         echo "❌ Instalacja nie powiodła się!"
         exit 1
     fi
 else
-    # Fallback - proste sprawdzenie
     echo "Sprawdzam czy kontener wystartował..."
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
@@ -115,5 +105,10 @@ fi
 
 echo ""
 echo "✅ Umami zainstalowane pomyślnie"
+if [ -n "$DOMAIN" ]; then
+    echo "🔗 Open https://$DOMAIN"
+else
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+fi
 echo "Default user: admin / umami"
 echo "👉 CHANGE PASSWORD IMMEDIATELY!"

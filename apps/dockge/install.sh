@@ -3,13 +3,15 @@
 # Mikrus Toolbox - Dockge Installation
 # A lightweight Docker Compose manager (Perfect for Mikrus)
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=150  # louislam/dockge:1
 
 set -e
 
 # Configuration
 DOCKGE_DIR="/opt/dockge"
 STACKS_DIR="/opt/stacks"
-PORT=5001
+PORT=${PORT:-5001}
 
 echo "--- 1. Checking Prerequisites ---"
 if ! command -v docker &> /dev/null; then

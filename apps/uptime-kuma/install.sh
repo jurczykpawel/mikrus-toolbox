@@ -4,12 +4,14 @@
 # Self-hosted monitoring tool like "Uptime Robot".
 # Very lightweight.
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=500  # louislam/uptime-kuma:1
 
 set -e
 
 APP_NAME="uptime-kuma"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=3001
+PORT=${PORT:-3001}
 
 echo "--- 📈 Uptime Kuma Setup ---"
 

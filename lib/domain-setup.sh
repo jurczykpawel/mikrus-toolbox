@@ -4,39 +4,98 @@
 # Używany przez skrypty instalacyjne do konfiguracji domeny.
 # Author: Paweł (Lazy Engineer)
 #
-# NOWY FLOW (fazy):
-#   1. ask_domain()       - zbiera wybór użytkownika (bez API)
-#   2. configure_domain() - konfiguruje domenę (po uruchomieniu usługi!)
+# NOWY FLOW z CLI:
+#   1. parse_args() + load_defaults()  - z cli-parser.sh
+#   2. ask_domain()       - sprawdza flagi, pyta tylko gdy brak
+#   3. configure_domain() - konfiguruje domenę (po uruchomieniu usługi!)
+#
+# Flagi CLI:
+#   --domain-type=cytrus|cloudflare|local
+#   --domain=DOMAIN (lub --domain=auto dla Cytrus automatyczny)
 #
 # Po wywołaniu dostępne zmienne:
 #   $DOMAIN_TYPE  - "cytrus" | "cloudflare" | "local"
-#   $DOMAIN       - pełna domena lub "" dla local
+#   $DOMAIN       - pełna domena, "-" dla auto-cytrus, lub "" dla local
+
+# Załaduj cli-parser jeśli nie załadowany
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! type ask_if_empty &>/dev/null; then
+    source "$SCRIPT_DIR/cli-parser.sh"
+fi
 
 CLOUDFLARE_CONFIG="$HOME/.config/cloudflare/config"
 
-# Kolory
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Kolory (jeśli nie zdefiniowane przez cli-parser)
+RED="${RED:-\033[0;31m}"
+GREEN="${GREEN:-\033[0;32m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+BLUE="${BLUE:-\033[0;34m}"
+NC="${NC:-\033[0m}"
 
 # Zmienne eksportowane (nie resetuj jeśli już ustawione)
 export DOMAIN="${DOMAIN:-}"
-export DOMAIN_TYPE="${DOMAIN_TYPE:-}"  # "cytrus" | "cloudflare" | "local"
+export DOMAIN_TYPE="${DOMAIN_TYPE:-}"
 
 # =============================================================================
-# FAZA 1: Zbieranie informacji (bez API)
+# FAZA 1: Zbieranie informacji (respektuje flagi CLI)
 # =============================================================================
 
 ask_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-mikrus}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
 
-    export DOMAIN=""
-    export DOMAIN_TYPE=""
+    # Jeśli DOMAIN_TYPE już ustawione z CLI
+    if [ -n "$DOMAIN_TYPE" ]; then
+        # Walidacja wartości
+        case "$DOMAIN_TYPE" in
+            cytrus|cloudflare|local) ;;
+            *)
+                echo -e "${RED}Błąd: --domain-type musi być: cytrus, cloudflare lub local${NC}" >&2
+                return 1
+                ;;
+        esac
 
+        # local nie wymaga DOMAIN
+        if [ "$DOMAIN_TYPE" = "local" ]; then
+            export DOMAIN=""
+            echo -e "${GREEN}✅ Tryb: tylko lokalnie (tunel SSH)${NC}"
+            return 0
+        fi
+
+        # Cytrus z --domain=auto
+        if [ "$DOMAIN_TYPE" = "cytrus" ] && [ "$DOMAIN" = "auto" ]; then
+            export DOMAIN="-"  # marker dla automatycznej domeny
+            echo -e "${GREEN}✅ Tryb: automatyczna domena Cytrus${NC}"
+            return 0
+        fi
+
+        # Cytrus/Cloudflare wymaga DOMAIN
+        if [ -z "$DOMAIN" ]; then
+            if [ "$YES_MODE" = true ]; then
+                echo -e "${RED}Błąd: --domain jest wymagane dla --domain-type=$DOMAIN_TYPE${NC}" >&2
+                return 1
+            fi
+            # Tryb interaktywny - dopytaj
+            if [ "$DOMAIN_TYPE" = "cytrus" ]; then
+                ask_domain_cytrus "$APP_NAME"
+            else
+                ask_domain_cloudflare "$APP_NAME"
+            fi
+            return $?
+        fi
+
+        echo -e "${GREEN}✅ Domena: $DOMAIN (typ: $DOMAIN_TYPE)${NC}"
+        return 0
+    fi
+
+    # Tryb --yes bez --domain-type = błąd
+    if [ "$YES_MODE" = true ]; then
+        echo -e "${RED}Błąd: --domain-type jest wymagane w trybie --yes${NC}" >&2
+        return 1
+    fi
+
+    # Tryb interaktywny
     echo ""
     echo "Jak chcesz uzyskać dostęp do aplikacji?"
     echo ""
@@ -82,6 +141,11 @@ ask_domain() {
 
 ask_domain_cytrus() {
     local APP_NAME="$1"
+
+    # Jeśli DOMAIN już ustawione (z CLI)
+    if [ -n "$DOMAIN" ]; then
+        return 0
+    fi
 
     echo ""
     echo "Dostępne domeny Mikrusa (darmowe):"
@@ -139,6 +203,11 @@ ask_domain_cytrus() {
 
 ask_domain_cloudflare() {
     local APP_NAME="$1"
+
+    # Jeśli DOMAIN już ustawione (z CLI)
+    if [ -n "$DOMAIN" ]; then
+        return 0
+    fi
 
     if [ ! -f "$CLOUDFLARE_CONFIG" ]; then
         echo ""
@@ -222,12 +291,40 @@ ask_domain_cloudflare() {
 }
 
 # =============================================================================
+# HELPER: Podsumowanie konfiguracji domeny
+# =============================================================================
+
+show_domain_summary() {
+    echo ""
+    echo "📋 Konfiguracja domeny:"
+    echo "   Typ:    $DOMAIN_TYPE"
+    if [ "$DOMAIN_TYPE" = "local" ]; then
+        echo "   Dostęp: tunel SSH"
+    elif [ "$DOMAIN" = "-" ]; then
+        echo "   Domena: (automatyczna Cytrus)"
+    else
+        echo "   Domena: $DOMAIN"
+    fi
+    echo ""
+}
+
+# =============================================================================
 # FAZA 2: Konfiguracja domeny (po uruchomieniu usługi!)
 # =============================================================================
 
 configure_domain() {
     local PORT="$1"
-    local SSH_ALIAS="${2:-mikrus}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
+
+    # Dry-run mode
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${BLUE}[dry-run] Konfiguruję domenę: $DOMAIN_TYPE / $DOMAIN${NC}"
+        if [ "$DOMAIN_TYPE" = "cytrus" ] && [ "$DOMAIN" = "-" ]; then
+            DOMAIN="[auto-assigned].byst.re"
+            export DOMAIN
+        fi
+        return 0
+    fi
 
     # Local - nic nie robimy
     if [ "$DOMAIN_TYPE" = "local" ]; then
@@ -334,7 +431,6 @@ configure_domain_cloudflare() {
     local PORT="$1"
     local SSH_ALIAS="$2"
 
-    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
     local DNS_SCRIPT="$REPO_ROOT/local/dns-add.sh"
 
@@ -355,10 +451,27 @@ configure_domain_cloudflare() {
     # Konfiguruj Caddy na serwerze
     echo ""
     echo "🔒 Konfiguruję HTTPS (Caddy)..."
-    if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'"; then
-        echo -e "${GREEN}✅ HTTPS skonfigurowany${NC}"
+
+    # Sprawdź czy to static site (szukamy pliku /tmp/*_webroot na serwerze)
+    local WEBROOT=$(ssh "$SSH_ALIAS" "cat /tmp/*_webroot 2>/dev/null | head -1" 2>/dev/null)
+
+    if [ -n "$WEBROOT" ]; then
+        # Static site - użyj trybu file_server
+        echo "   Wykryto static site: $WEBROOT"
+        if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$WEBROOT' static"; then
+            echo -e "${GREEN}✅ HTTPS skonfigurowany (file_server)${NC}"
+            # Usuń marker
+            ssh "$SSH_ALIAS" "rm -f /tmp/*_webroot" 2>/dev/null
+        else
+            echo -e "${YELLOW}⚠️  mikrus-expose niedostępny${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠️  mikrus-expose niedostępny - pomiń jeśli używasz Cytrus${NC}"
+        # Docker app - użyj reverse_proxy
+        if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'"; then
+            echo -e "${GREEN}✅ HTTPS skonfigurowany (reverse_proxy)${NC}"
+        else
+            echo -e "${YELLOW}⚠️  mikrus-expose niedostępny - pomiń jeśli używasz Cytrus${NC}"
+        fi
     fi
 
     echo ""
@@ -375,6 +488,12 @@ wait_for_domain() {
     local TIMEOUT="${1:-60}"  # domyślnie 60 sekund
 
     if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ] || [ "$DOMAIN_TYPE" = "local" ]; then
+        return 0
+    fi
+
+    # Dry-run mode
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${BLUE}[dry-run] Czekam na domenę: $DOMAIN${NC}"
         return 0
     fi
 
@@ -437,7 +556,7 @@ wait_for_domain() {
 get_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-mikrus}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
 
     # Faza 1: zbierz wybór
     if ! ask_domain "$APP_NAME" "$PORT" "$SSH_ALIAS"; then
@@ -459,7 +578,7 @@ get_domain() {
 setup_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-mikrus}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
@@ -519,6 +638,7 @@ setup_cytrus() {
 export -f ask_domain
 export -f ask_domain_cytrus
 export -f ask_domain_cloudflare
+export -f show_domain_summary
 export -f configure_domain
 export -f configure_domain_cytrus
 export -f configure_domain_cloudflare

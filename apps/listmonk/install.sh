@@ -5,44 +5,45 @@
 # Alternative to Mailchimp / MailerLite.
 # Written in Go - very lightweight.
 # Author: Paweł (Lazy Engineer)
+#
+# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
+#   DOMAIN (opcjonalne)
 
 set -e
 
 APP_NAME="listmonk"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT=9000
+PORT=${PORT:-9000}
 
 echo "--- 📧 Listmonk Setup ---"
 echo "Requires PostgreSQL Database."
 
-# Database credentials (from environment or prompt)
-if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ]; then
-    echo "✅ Używam danych bazy z konfiguracji:"
-    echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
-    DB_PORT=${DB_PORT:-5432}
-else
-    echo "📝 Podaj dane bazy PostgreSQL:"
-    read -p "Database Host: " DB_HOST
-    read -p "Database Name: " DB_NAME
-    read -p "Database User: " DB_USER
-    read -s -p "Database Password: " DB_PASS
-    echo ""
+# Validate database credentials
+if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
+    echo "❌ Błąd: Brak danych bazy danych!"
+    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    exit 1
 fi
-# Domain (from environment or prompt)
+
+echo "✅ Dane bazy danych:"
+echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
+
+DB_PORT=${DB_PORT:-5432}
+
+# Domain
 if [ -n "$DOMAIN" ]; then
-    echo "✅ Używam domeny z konfiguracji: $DOMAIN"
+    echo "✅ Domena: $DOMAIN"
+    ROOT_URL="https://$DOMAIN"
 else
-    echo ""
-    read -p "Domain (e.g., mail.example.com): " DOMAIN
+    echo "⚠️  Brak domeny - używam localhost"
+    ROOT_URL="http://localhost:$PORT"
 fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-# Listmonk needs an initial install step to create tables
-# We use docker-compose but with a one-time install flag if it's the first run.
-
-cat <<EOF | sudo tee docker-compose.yaml
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 
 services:
   listmonk:
@@ -58,7 +59,7 @@ services:
       - LISTMONK_db__password=$DB_PASS
       - LISTMONK_db__database=$DB_NAME
       - LISTMONK_app__address=0.0.0.0:9000
-      - LISTMONK_app__root_url=https://$DOMAIN
+      - LISTMONK_app__root_url=$ROOT_URL
     volumes:
       - ./data:/listmonk/uploads
     deploy:
@@ -88,11 +89,19 @@ else
     fi
 fi
 
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
+# Caddy/HTTPS - only for real domains
+if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN" "$PORT"
+    fi
 fi
 
 echo ""
-echo "✅ Listmonk started at https://$DOMAIN"
+echo "✅ Listmonk started!"
+if [ -n "$DOMAIN" ]; then
+    echo "🔗 Open https://$DOMAIN"
+else
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+fi
 echo "Default user: admin / listmonk"
 echo "👉 CONFIGURE YOUR SMTP SERVER IN SETTINGS TO SEND EMAILS."
