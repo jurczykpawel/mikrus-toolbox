@@ -6,6 +6,10 @@
 # Written in Go - very lightweight.
 # Author: Paweł (Lazy Engineer)
 #
+# WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
+#     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
+#     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
+#
 # Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 #   DOMAIN (opcjonalne)
@@ -30,14 +34,21 @@ echo "✅ Dane bazy danych:"
 echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
-DB_SCHEMA=${DB_SCHEMA:-listmonk}
 
-# UWAGA: Listmonk domyślnie używa schematu 'public' i tworzy własne tabele.
-# Nie obsługuje custom schematów w konfiguracji env.
-# Schemat jest zachowany dla spójności z innymi aplikacjami.
-if [ "$DB_SCHEMA" != "public" ] && [ "$DB_SCHEMA" != "listmonk" ]; then
-    echo "⚠️  Listmonk używa własnego schematu tabel (public)."
-    echo "   Ustawienie --db-schema=$DB_SCHEMA zostanie zignorowane."
+# Check for shared Mikrus DB (doesn't support pgcrypto)
+if [[ "$DB_HOST" == psql*.mikr.us ]]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BŁĄD: Listmonk NIE działa ze współdzieloną bazą Mikrusa!   ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Listmonk (od v6.0.0) wymaga rozszerzenia 'pgcrypto',          ║"
+    echo "║  które nie jest dostępne w darmowej bazie Mikrusa.             ║"
+    echo "║                                                                ║"
+    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
+    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    exit 1
 fi
 
 # Domain

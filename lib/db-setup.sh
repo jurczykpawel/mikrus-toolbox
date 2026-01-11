@@ -41,73 +41,64 @@ export DB_SOURCE="${DB_SOURCE:-}"
 
 # Aplikacje wymagające pgcrypto (nie działają ze współdzieloną bazą Mikrusa)
 # n8n od wersji 1.121+ wymaga gen_random_uuid() które potrzebuje pgcrypto lub PostgreSQL 13+
-REQUIRES_PGCRYPTO="umami n8n"
+# listmonk od v6.0.0 wymaga pgcrypto do migracji
+REQUIRES_PGCRYPTO="umami n8n listmonk"
 
 # =============================================================================
 # REKOMENDACJE BAZY DANYCH DLA APLIKACJI
 # =============================================================================
-# Format: APP_NAME="rekomendacja|typ_domyślny"
-# typ_domyślny: shared (darmowa), custom (płatna)
-#
 # Rekomendacje są wyświetlane użytkownikowi podczas wyboru bazy danych.
 # Pomagają podjąć świadomą decyzję czy użyć darmowej bazy czy płatnej.
 # =============================================================================
 
-declare -A DB_RECOMMENDATIONS
-DB_RECOMMENDATIONS=(
-    # n8n - wymaga pgcrypto (BLOCKED for shared)
-    ["n8n"]="Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
-   Darmowa baza Mikrusa NIE obsługuje tej aplikacji.
-   ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud|custom"
-
-    # umami - wymaga pgcrypto (BLOCKED for shared)
-    ["umami"]="Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
-   Darmowa baza Mikrusa NIE obsługuje tej aplikacji.
-   ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud|custom"
-
-    # listmonk - lekka aplikacja, działa z shared
-    ["listmonk"]="Listmonk to lekka aplikacja (Go), przechowuje tylko:
-   • listy mailingowe i subskrybentów
-   • kampanie i szablony
-   ➜ Darmowa baza Mikrusa w zupełności wystarczy!
-   ➜ Płatna: tylko jeśli planujesz >100k subskrybentów|shared"
-
-    # nocodb - lekka aplikacja, działa z shared
-    ["nocodb"]="NocoDB przechowuje tylko metadane tabel i widoków.
-   Właściwe dane możesz trzymać w zewnętrznej bazie.
-   ➜ Darmowa baza Mikrusa wystarczy dla typowego użycia.
-   ➜ Płatna: jeśli masz dużo tabel/współpracowników|shared"
-
-    # cap - lekka aplikacja MySQL, tylko metadane
-    ["cap"]="Cap przechowuje tylko metadane nagrań (linki do S3).
-   Właściwe pliki wideo są w S3/MinIO.
-   ➜ Darmowa baza Mikrusa w zupełności wystarczy!
-   ➜ Płatna: tylko przy bardzo dużej ilości nagrań|shared"
-
-    # typebot - średnie obciążenie
-    ["typebot"]="Typebot przechowuje boty, wyniki i analitykę.
-   ➜ Darmowa baza OK dla małych/średnich botów.
-   ➜ Płatna: jeśli planujesz >10k konwersacji/mies.|shared"
-)
-
-# Pobierz rekomendację dla aplikacji
+# Pobierz rekomendację dla aplikacji (używa case zamiast declare -A dla kompatybilności z bash 3.x)
 get_db_recommendation() {
     local APP_NAME="$1"
-    local rec="${DB_RECOMMENDATIONS[$APP_NAME]:-}"
-    if [ -n "$rec" ]; then
-        echo "${rec%|*}"  # Usuń typ domyślny (po |)
-    fi
+    case "$APP_NAME" in
+        n8n|umami)
+            echo "Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
+   Darmowa baza Mikrusa NIE obsługuje tej aplikacji.
+   ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud"
+            ;;
+        listmonk)
+            echo "Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
+   Darmowa baza Mikrusa NIE obsługuje tej aplikacji (od v6.0.0).
+   ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud"
+            ;;
+        nocodb)
+            echo "NocoDB przechowuje tylko metadane tabel i widoków.
+   Właściwe dane możesz trzymać w zewnętrznej bazie.
+   ➜ Darmowa baza Mikrusa wystarczy dla typowego użycia.
+   ➜ Płatna: jeśli masz dużo tabel/współpracowników"
+            ;;
+        cap)
+            echo "Cap przechowuje tylko metadane nagrań (linki do S3).
+   Właściwe pliki wideo są w S3/MinIO.
+   ➜ Darmowa baza Mikrusa w zupełności wystarczy!
+   ➜ Płatna: tylko przy bardzo dużej ilości nagrań"
+            ;;
+        typebot)
+            echo "Typebot przechowuje boty, wyniki i analitykę.
+   ➜ Darmowa baza OK dla małych/średnich botów.
+   ➜ Płatna: jeśli planujesz >10k konwersacji/mies."
+            ;;
+    esac
 }
 
 # Pobierz domyślny typ bazy dla aplikacji
 get_default_db_type() {
     local APP_NAME="$1"
-    local rec="${DB_RECOMMENDATIONS[$APP_NAME]:-}"
-    if [ -n "$rec" ]; then
-        echo "${rec##*|}"  # Weź tylko typ (po |)
-    else
-        echo "shared"  # Domyślnie shared
-    fi
+    case "$APP_NAME" in
+        n8n|umami|listmonk)
+            echo "custom"  # Wymaga pgcrypto - shared nie działa
+            ;;
+        nocodb|cap|typebot)
+            echo "shared"  # Lekkie aplikacje - shared wystarczy
+            ;;
+        *)
+            echo "shared"  # Domyślnie shared
+            ;;
+    esac
 }
 
 # =============================================================================
