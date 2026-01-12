@@ -1,123 +1,306 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow (Strict Alignment with AI-DEPLOYMENT.md)
-# Deploys GateFlow Admin Panel on Port 3333 via PM2 using ecosystem.config.js.
+# Mikrus Toolbox - GateFlow
+# Self-hosted digital products sales platform (Gumroad/EasyCart alternative)
 # Author: Paweł (Lazy Engineer)
+#
+# Wymagane:
+#   - Mikrus 3.0+ (1GB RAM)
+#   - Konto Supabase (darmowe)
+#   - Konto Stripe
+#
+# Zmienne środowiskowe (opcjonalne - można podać interaktywnie):
+#   STRIPE_PK          - Stripe Publishable Key
+#   STRIPE_SK          - Stripe Secret Key
+#   STRIPE_WEBHOOK_SECRET - Stripe Webhook Secret (opcjonalne)
+#   DOMAIN             - Domena aplikacji
 
 set -e
 
 APP_NAME="gateflow"
-INSTALL_DIR="/var/www/$APP_NAME"
-PORT=${PORT:-3333} # As per AI-DEPLOYMENT.md
+INSTALL_DIR="/root/gateflow"
+PORT=${PORT:-3333}
+REPO_URL="${REPO_URL:-git@github.com:pavvel11/gateflow.git}"
+BRANCH="${BRANCH:-dev}"
 
-echo "--- 🚀 GateFlow Setup (Official PM2 Workflow) ---"
+echo "--- 💰 GateFlow Setup ---"
+echo ""
 
-# Wymagane zmienne środowiskowe
-MISSING_VARS=""
-[ -z "$REPO_URL" ] && MISSING_VARS="$MISSING_VARS REPO_URL"
-[ -z "$SUPABASE_URL" ] && MISSING_VARS="$MISSING_VARS SUPABASE_URL"
-[ -z "$SUPABASE_ANON_KEY" ] && MISSING_VARS="$MISSING_VARS SUPABASE_ANON_KEY"
-[ -z "$SUPABASE_SERVICE_KEY" ] && MISSING_VARS="$MISSING_VARS SUPABASE_SERVICE_KEY"
-[ -z "$STRIPE_PK" ] && MISSING_VARS="$MISSING_VARS STRIPE_PK"
-[ -z "$STRIPE_SK" ] && MISSING_VARS="$MISSING_VARS STRIPE_SK"
-[ -z "$DOMAIN" ] && MISSING_VARS="$MISSING_VARS DOMAIN"
+# =============================================================================
+# 1. INSTALACJA BUN + PM2
+# =============================================================================
 
-if [ -n "$MISSING_VARS" ]; then
-    echo "❌ Brak wymaganych zmiennych:$MISSING_VARS"
-    echo ""
-    echo "   Użycie:"
-    echo "   REPO_URL=https://github.com/... \\"
-    echo "   SUPABASE_URL=https://xxx.supabase.co \\"
-    echo "   SUPABASE_ANON_KEY=eyJ... \\"
-    echo "   SUPABASE_SERVICE_KEY=eyJ... \\"
-    echo "   STRIPE_PK=pk_live_... \\"
-    echo "   STRIPE_SK=sk_live_... \\"
-    echo "   DOMAIN=app.example.com ./install.sh"
-    exit 1
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
+    echo "📦 Instaluję Bun + PM2..."
+    if [ -f "/opt/mikrus-toolbox/system/bun-setup.sh" ]; then
+        source /opt/mikrus-toolbox/system/bun-setup.sh
+    else
+        # Fallback - instaluj bezpośrednio
+        curl -fsSL https://bun.sh/install | bash
+        export PATH="$HOME/.bun/bin:$PATH"
+        bun install -g pm2
+    fi
 fi
 
-echo "✅ Repo: $REPO_URL"
-echo "✅ Supabase: $SUPABASE_URL"
-echo "✅ Domena: $DOMAIN"
+echo "✅ Bun: v$(bun --version)"
+echo "✅ PM2: v$(pm2 --version)"
+echo ""
 
-# 1. Prerequisites Check
-if ! command -v pm2 &> /dev/null; then
-    echo "❌ PM2 not found. Running system/pm2-setup.sh..."
-    bash "$(dirname "$0")/../system/pm2-setup.sh"
-fi
+# =============================================================================
+# 2. KLONOWANIE REPOZYTORIUM
+# =============================================================================
 
-# 2. Clone Repository
-echo "--- 📥 Cloning Source ---"
-sudo mkdir -p "$INSTALL_DIR"
-sudo chown $USER:$USER "$INSTALL_DIR"
+echo "📥 Pobieram GateFlow..."
 
 if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "⚠️  Directory already exists. Pulling changes..."
-    cd "$INSTALL_DIR" && git pull
+    echo "   Aktualizuję istniejącą instalację..."
+    cd "$INSTALL_DIR"
+    git fetch origin
+    git checkout "$BRANCH"
+    git pull origin "$BRANCH"
 else
     git clone "$REPO_URL" "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    git checkout "$BRANCH"
 fi
 
-cd "$INSTALL_DIR"
+echo "✅ Kod źródłowy pobrany"
+echo ""
 
-# 3. Create ecosystem.config.js (As per AI-DEPLOYMENT.md)
-echo "--- ⚙️  Generating ecosystem.config.js ---"
-cat > ecosystem.config.js <<EOF
-module.exports = {
-  apps: [
-    {
-      name: "gateflow-admin",
-      cwd: "./admin-panel",
-      script: "npm",
-      args: "start",
-      env: {
-        NODE_ENV: "production",
-        PORT: 3333
-      }
-    }
-  ]
-};
-EOF
+# =============================================================================
+# 3. KONFIGURACJA SUPABASE
+# =============================================================================
 
-# 4. Configure Environment
-echo "--- 🔑 Configuring .env.local ---"
-# Check if .env.local exists, if not create from env vars
-if [ ! -f "admin-panel/.env.local" ]; then
-    cat <<ENV > admin-panel/.env.local
+ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
+
+if [ -f "$ENV_FILE" ] && grep -q "NEXT_PUBLIC_SUPABASE_URL" "$ENV_FILE"; then
+    echo "✅ Konfiguracja Supabase już istnieje"
+elif [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+    # Zmienne przekazane z deploy.sh
+    echo "✅ Konfiguruję Supabase..."
+    mkdir -p "$INSTALL_DIR/admin-panel"
+    cat > "$ENV_FILE" <<ENVEOF
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
+ENVEOF
+else
+    echo "❌ Brak konfiguracji Supabase!"
+    echo "   Uruchom deploy.sh interaktywnie lub podaj zmienne:"
+    echo "   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
+    exit 1
+fi
+
+# =============================================================================
+# 4. KONFIGURACJA STRIPE
+# =============================================================================
+
+if grep -q "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_" "$ENV_FILE" 2>/dev/null; then
+    echo "✅ Konfiguracja Stripe już istnieje"
+else
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "📋 KONFIGURACJA STRIPE"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+
+    # Sprawdź zmienne środowiskowe
+    if [ -n "$STRIPE_PK" ] && [ -n "$STRIPE_SK" ]; then
+        echo "✅ Użyto zmiennych środowiskowych dla Stripe"
+        CONFIGURE_STRIPE=true
+    elif [ -t 0 ]; then
+        echo "GateFlow potrzebuje kluczy Stripe do obsługi płatności."
+        echo ""
+        echo "Masz dwie opcje:"
+        echo "   1) Skonfiguruj teraz - podasz klucze z dashboard.stripe.com"
+        echo "   2) Skonfiguruj później - klucze ustawisz w panelu GateFlow"
+        echo ""
+        read -p "Czy chcesz skonfigurować Stripe teraz? [t/N]: " STRIPE_CHOICE
+
+        if [[ "$STRIPE_CHOICE" =~ ^[TtYy]$ ]]; then
+            echo ""
+            echo "   1. Otwórz: https://dashboard.stripe.com/apikeys"
+            echo "   2. Skopiuj 'Publishable key' (pk_live_... lub pk_test_...)"
+            echo "   3. Skopiuj 'Secret key' (sk_live_... lub sk_test_...)"
+            echo ""
+            read -p "STRIPE_PUBLISHABLE_KEY (pk_...): " STRIPE_PK
+            read -p "STRIPE_SECRET_KEY (sk_...): " STRIPE_SK
+            read -p "STRIPE_WEBHOOK_SECRET (whsec_..., opcjonalne - Enter aby pominąć): " STRIPE_WEBHOOK_SECRET
+            CONFIGURE_STRIPE=true
+        else
+            echo ""
+            echo "⏭️  Pominięto konfigurację Stripe - skonfigurujesz w panelu po instalacji."
+            CONFIGURE_STRIPE=false
+        fi
+    else
+        # Tryb nieinteraktywny bez kluczy - pomiń (można skonfigurować w GUI)
+        echo "⏭️  Stripe nie skonfigurowany - skonfigurujesz w panelu po instalacji."
+        CONFIGURE_STRIPE=false
+    fi
+
+    # Dodaj do .env.local tylko jeśli wybrano konfigurację
+    if [ "$CONFIGURE_STRIPE" = true ] && [ -n "$STRIPE_PK" ]; then
+        cat >> "$ENV_FILE" <<ENVEOF
+
+# Stripe
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
 STRIPE_SECRET_KEY=$STRIPE_SK
-STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-TODO_UPDATE_ME}
-NEXT_PUBLIC_BASE_URL=https://$DOMAIN
-NEXT_PUBLIC_SITE_URL=https://$DOMAIN
-ENV
-    echo "✅ .env.local created."
-else
-    echo "ℹ️  .env.local already exists. Skipping configuration."
+STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_TODO_UPDATE_AFTER_WEBHOOK_SETUP}
+ENVEOF
+    fi
 fi
 
-# 5. Build & Install
-echo "--- 🛠️  Building Application ---"
-cd admin-panel
-npm install
-# Ensure we have required build deps
-npm install --save @tailwindcss/postcss || true # Fix common webpack issue mentioned in doc
-npm run build
+# =============================================================================
+# 5. KONFIGURACJA DOMENY I URL
+# =============================================================================
 
-# 6. Start via PM2
-echo "--- 🚀 Starting PM2 Service ---"
-cd .. # Back to root where ecosystem.config.js is
-pm2 start ecosystem.config.js || pm2 restart gateflow-admin
+if grep -q "NEXT_PUBLIC_SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
+    echo "✅ Konfiguracja URL już istnieje"
+else
+    if [ -n "$DOMAIN" ]; then
+        SITE_URL="https://$DOMAIN"
+    elif [ -t 0 ]; then
+        echo ""
+        read -p "Domena aplikacji (np. app.example.com): " DOMAIN
+        SITE_URL="https://$DOMAIN"
+    else
+        SITE_URL="https://localhost:$PORT"
+    fi
+
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Site URLs
+NEXT_PUBLIC_SITE_URL=$SITE_URL
+NEXT_PUBLIC_BASE_URL=$SITE_URL
+MAIN_DOMAIN=${DOMAIN:-localhost}
+
+# Production
+NODE_ENV=production
+PORT=$PORT
+ENVEOF
+fi
+
+chmod 600 "$ENV_FILE"
+echo "✅ Konfiguracja zapisana w $ENV_FILE"
+echo ""
+
+# =============================================================================
+# 6. BUILD APLIKACJI
+# =============================================================================
+
+echo "🛠️  Buduję aplikację (może potrwać 2-3 minuty)..."
+cd "$INSTALL_DIR/admin-panel"
+bun install
+bun run build
+
+echo "✅ Build zakończony"
+echo ""
+
+# =============================================================================
+# 7. KONFIGURACJA PM2
+# =============================================================================
+
+echo "⚙️  Konfiguruję PM2..."
+
+cat > "$INSTALL_DIR/ecosystem.config.js" <<'PMEOF'
+module.exports = {
+  apps: [{
+    name: "gateflow-admin",
+    cwd: "./admin-panel",
+    script: process.env.HOME + "/.bun/bin/bun",
+    args: "run start",
+    env: {
+      NODE_ENV: "production",
+      PORT: 3333
+    },
+    instances: 1,
+    exec_mode: "fork",
+    autorestart: true,
+    max_memory_restart: "900M",
+    error_file: "./admin-panel/logs/error.log",
+    out_file: "./admin-panel/logs/out.log"
+  }]
+};
+PMEOF
+
+mkdir -p "$INSTALL_DIR/admin-panel/logs"
+
+# =============================================================================
+# 8. START APLIKACJI
+# =============================================================================
+
+echo "🚀 Uruchamiam GateFlow..."
+cd "$INSTALL_DIR"
+
+# Zatrzymaj jeśli działa
+pm2 delete gateflow-admin 2>/dev/null || true
+
+# Uruchom
+pm2 start ecosystem.config.js
 pm2 save
 
-# 7. Expose via Caddy
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
+# Poczekaj i sprawdź
+sleep 3
+
+if pm2 list | grep -q "gateflow-admin.*online"; then
+    echo "✅ GateFlow działa!"
+else
+    echo "❌ Problem z uruchomieniem. Logi:"
+    pm2 logs gateflow-admin --lines 20
+    exit 1
 fi
 
-echo "✅ GateFlow Deployment Complete!"
-echo "   URL: https://$DOMAIN"
-echo "   PM2 Name: gateflow-admin"
-echo "   Logs: pm2 logs gateflow-admin"
+# Health check
+sleep 2
+if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" | grep -q "200\|301\|302"; then
+    echo "✅ Aplikacja odpowiada na porcie $PORT"
+else
+    echo "⚠️  Aplikacja może jeszcze się uruchamiać..."
+fi
+
+# Caddy/HTTPS - dla Cloudflare (Cytrus jest obsługiwany przez deploy.sh)
+if [ -n "$DOMAIN" ] && command -v mikrus-expose &> /dev/null; then
+    # Sprawdź czy to nie jest domena Cytrus
+    case "$DOMAIN" in
+        *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl)
+            # Cytrus - obsługiwane przez deploy.sh
+            ;;
+        *)
+            # Cloudflare - użyj Caddy
+            sudo mikrus-expose "$DOMAIN" "$PORT"
+            ;;
+    esac
+fi
+
+# =============================================================================
+# 9. PODSUMOWANIE
+# =============================================================================
+
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "✅ GateFlow zainstalowany!"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+if [ -n "$DOMAIN" ]; then
+    echo "🔗 URL: https://$DOMAIN"
+else
+    echo "🔗 Lokalnie: http://localhost:$PORT"
+fi
+echo ""
+echo "📋 Przydatne komendy:"
+echo "   pm2 status              - status aplikacji"
+echo "   pm2 logs gateflow-admin - logi"
+echo "   pm2 restart gateflow-admin - restart"
+echo ""
+echo "📋 Następne kroki:"
+echo "   1. Otwórz URL - pierwszy user zostanie adminem"
+echo "   2. Skonfiguruj Stripe Webhook:"
+echo "      → https://dashboard.stripe.com/webhooks"
+echo "      → Endpoint: https://$DOMAIN/api/webhooks/stripe"
+echo "      → Events: checkout.session.completed, payment_intent.succeeded"
+echo "   3. Zaktualizuj STRIPE_WEBHOOK_SECRET w $ENV_FILE"
+echo ""

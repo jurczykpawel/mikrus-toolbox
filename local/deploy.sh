@@ -479,6 +479,212 @@ fi
 echo "🚀 Uruchamiam instalację na serwerze..."
 echo ""
 
+# Dla GateFlow - konfiguracja Supabase lokalnie (własna implementacja CLI flow)
+if [ "$APP_NAME" = "gateflow" ] && [ -z "$SUPABASE_URL" ]; then
+    echo "════════════════════════════════════════════════════════════════"
+    echo "📋 KONFIGURACJA SUPABASE"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+
+    # Generuj klucze ECDH (P-256)
+    TEMP_DIR=$(mktemp -d)
+    openssl ecparam -name prime256v1 -genkey -noout -out "$TEMP_DIR/private.pem" 2>/dev/null
+    openssl ec -in "$TEMP_DIR/private.pem" -pubout -out "$TEMP_DIR/public.pem" 2>/dev/null
+
+    # Pobierz publiczny klucz - 65 bajtów (04 + X + Y) w formacie HEX
+    PUBLIC_KEY_RAW=$(openssl ec -in "$TEMP_DIR/private.pem" -pubout -outform DER 2>/dev/null | dd bs=1 skip=26 2>/dev/null | xxd -p | tr -d '\n')
+
+    # Generuj session ID (UUID v4) i token name
+    SESSION_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null)
+    TOKEN_NAME="mikrus_toolbox_$(hostname | tr '.' '_')_$(date +%s)"
+
+    # Buduj URL logowania
+    LOGIN_URL="https://supabase.com/dashboard/cli/login?session_id=${SESSION_ID}&token_name=${TOKEN_NAME}&public_key=${PUBLIC_KEY_RAW}"
+
+    echo "🔐 Logowanie do Supabase"
+    echo ""
+    echo "   Za chwilę otworzy się przeglądarka ze stroną logowania Supabase."
+    echo "   Po zalogowaniu zobaczysz 8-znakowy kod weryfikacyjny."
+    echo "   Skopiuj go i wklej tutaj."
+    echo ""
+    read -p "   Naciśnij Enter aby otworzyć przeglądarkę..." _
+
+    if command -v open &>/dev/null; then
+        open "$LOGIN_URL"
+    elif command -v xdg-open &>/dev/null; then
+        xdg-open "$LOGIN_URL"
+    else
+        echo ""
+        echo "   Nie mogę otworzyć przeglądarki automatycznie."
+        echo "   Otwórz ręcznie: $LOGIN_URL"
+    fi
+
+    echo ""
+    read -p "Wklej kod weryfikacyjny: " DEVICE_CODE
+
+    # Polluj endpoint po token
+    echo ""
+    echo "🔑 Pobieram token..."
+    POLL_URL="https://api.supabase.com/platform/cli/login/${SESSION_ID}?device_code=${DEVICE_CODE}"
+
+    TOKEN_RESPONSE=$(curl -s "$POLL_URL")
+
+    if echo "$TOKEN_RESPONSE" | grep -q '"access_token"'; then
+        echo "   ✓ Token otrzymany, deszyfruję..."
+
+        # Token w odpowiedzi - potrzebujemy odszyfrować
+        ENCRYPTED_TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        SERVER_PUBLIC_KEY=$(echo "$TOKEN_RESPONSE" | grep -o '"public_key":"[^"]*"' | cut -d'"' -f4)
+        NONCE=$(echo "$TOKEN_RESPONSE" | grep -o '"nonce":"[^"]*"' | cut -d'"' -f4)
+
+        # Deszyfrowanie ECDH + AES-GCM
+        if command -v node &>/dev/null; then
+            # Zapisz dane do plików tymczasowych
+            echo "$SERVER_PUBLIC_KEY" > "$TEMP_DIR/server_pubkey.hex"
+            echo "$NONCE" > "$TEMP_DIR/nonce.hex"
+            echo "$ENCRYPTED_TOKEN" > "$TEMP_DIR/encrypted.hex"
+
+            SUPABASE_TOKEN=$(TEMP_DIR="$TEMP_DIR" node << 'NODESCRIPT'
+const crypto = require('crypto');
+const fs = require('fs');
+
+const tempDir = process.env.TEMP_DIR;
+const privateKeyPem = fs.readFileSync(tempDir + '/private.pem', 'utf8');
+const serverPubKeyHex = fs.readFileSync(tempDir + '/server_pubkey.hex', 'utf8').trim();
+const nonceHex = fs.readFileSync(tempDir + '/nonce.hex', 'utf8').trim();
+const encryptedHex = fs.readFileSync(tempDir + '/encrypted.hex', 'utf8').trim();
+
+// Dekoduj hex
+const serverPubKey = Buffer.from(serverPubKeyHex, 'hex');
+const nonce = Buffer.from(nonceHex, 'hex');
+const encrypted = Buffer.from(encryptedHex, 'hex');
+
+// Wyciągnij raw private key z PEM (ostatnie 32 bajty z SEC1/PKCS8)
+const privKeyObj = crypto.createPrivateKey(privateKeyPem);
+const privKeyDer = privKeyObj.export({type: 'sec1', format: 'der'});
+// SEC1 format: 30 len 02 01 01 04 20 [32 bytes private key] ...
+const privKeyRaw = privKeyDer.slice(7, 39);
+
+// ECDH z createECDH - przyjmuje raw bytes
+const ecdh = crypto.createECDH('prime256v1');
+ecdh.setPrivateKey(privKeyRaw);
+const sharedSecret = ecdh.computeSecret(serverPubKey);
+
+// Klucz AES = shared secret (32 bajty)
+const key = sharedSecret;
+
+// Deszyfruj AES-GCM
+const decipher = crypto.createDecipheriv('aes-256-gcm', key, nonce);
+const tag = encrypted.slice(-16);
+const ciphertext = encrypted.slice(0, -16);
+decipher.setAuthTag(tag);
+const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+console.log(decrypted.toString('utf8'));
+NODESCRIPT
+            ) || true
+        else
+            echo "   Brak Node.js - nie mogę odszyfrować"
+        fi
+
+        if [ -z "$SUPABASE_TOKEN" ] || echo "$SUPABASE_TOKEN" | grep -qiE "error|node:|Error"; then
+            echo ""
+            echo "⚠️  Nie udało się odszyfrować tokena automatycznie."
+            echo "   Ale token został utworzony w Supabase! Pobierzemy go ręcznie."
+            echo ""
+            echo "   Krok po kroku:"
+            echo "   1. Za chwilę otworzy się strona z tokenami Supabase"
+            echo "   2. Znajdź token z nazwą: $TOKEN_NAME"
+            echo "   3. Kliknij ikonę kopiowania obok tokena (sbp_...)"
+            echo "   4. Wklej token tutaj"
+            echo ""
+            read -p "   Naciśnij Enter aby otworzyć stronę z tokenami..." _
+            if command -v open &>/dev/null; then
+                open "https://supabase.com/dashboard/account/tokens"
+            elif command -v xdg-open &>/dev/null; then
+                xdg-open "https://supabase.com/dashboard/account/tokens"
+            else
+                echo "   Otwórz: https://supabase.com/dashboard/account/tokens"
+            fi
+            echo ""
+            read -p "Wklej token (sbp_...): " SUPABASE_TOKEN
+        else
+            echo "   ✅ Token odszyfrowany!"
+        fi
+    elif echo "$TOKEN_RESPONSE" | grep -q "Cloudflare"; then
+        echo "⚠️  Cloudflare blokuje request. Token został utworzony w przeglądarce."
+        echo ""
+        if command -v open &>/dev/null; then
+            open "https://supabase.com/dashboard/account/tokens"
+        fi
+        echo "   Skopiuj najnowszy token (sbp_...):"
+        read -p "Token: " SUPABASE_TOKEN
+    else
+        echo "❌ Błąd: $TOKEN_RESPONSE"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
+
+    rm -rf "$TEMP_DIR"
+
+    # Mamy token - pobierz projekty
+    if [ -n "$SUPABASE_TOKEN" ]; then
+        echo ""
+        echo "📋 Pobieram listę projektów..."
+        PROJECTS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects")
+
+        if echo "$PROJECTS" | grep -q '"id"'; then
+            echo ""
+            echo "Twoje projekty Supabase:"
+            echo ""
+
+            # Parsuj projekty do tablicy
+            PROJECT_IDS=()
+            PROJECT_NAMES=()
+            i=1
+            while IFS= read -r line; do
+                proj_id=$(echo "$line" | cut -d'|' -f1)
+                proj_name=$(echo "$line" | cut -d'|' -f2)
+                PROJECT_IDS+=("$proj_id")
+                PROJECT_NAMES+=("$proj_name")
+                echo "   $i) $proj_name ($proj_id)"
+                ((i++))
+            done < <(echo "$PROJECTS" | grep -oE '"id":"[^"]+"|"name":"[^"]+"' | paste - - | sed 's/"id":"//g; s/""name":"/ |/g; s/"//g')
+
+            echo ""
+            read -p "Wybierz numer projektu [1-$((i-1))]: " PROJECT_NUM
+
+            # Walidacja wyboru
+            if [[ "$PROJECT_NUM" =~ ^[0-9]+$ ]] && [ "$PROJECT_NUM" -ge 1 ] && [ "$PROJECT_NUM" -lt "$i" ]; then
+                PROJECT_REF="${PROJECT_IDS[$((PROJECT_NUM-1))]}"
+                echo "   Wybrany projekt: ${PROJECT_NAMES[$((PROJECT_NUM-1))]}"
+            else
+                echo "❌ Nieprawidłowy wybór"
+                exit 1
+            fi
+
+            echo ""
+            echo "🔑 Pobieram klucze API..."
+            API_KEYS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys")
+
+            SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
+            SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+            SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+
+            if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+                echo "✅ Klucze Supabase pobrane!"
+                EXTRA_ENV="$EXTRA_ENV SUPABASE_URL='$SUPABASE_URL' SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
+            else
+                echo "❌ Nie udało się pobrać kluczy API"
+                exit 1
+            fi
+        else
+            echo "❌ Nie udało się pobrać projektów: $PROJECTS"
+            exit 1
+        fi
+    fi
+    echo ""
+fi
+
 REMOTE_SCRIPT="/tmp/mikrus-deploy-$$.sh"
 scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT"
 

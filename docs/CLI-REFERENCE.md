@@ -306,16 +306,37 @@ DOMAIN=cap.example.com
 
 ### GateFlow
 
+GateFlow używa **Bun + PM2** (nie Docker). Instalacja jest **interaktywna** - skrypt przeprowadzi Cię przez konfigurację Supabase i Stripe.
+
 ```bash
-REPO_URL=https://github.com/...
+# Interaktywny setup (zalecane)
+./local/deploy.sh gateflow --ssh=mikrus
+
+# Z domeną Cytrus
+./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=shop.byst.re
+
+# Z domeną Cloudflare
+./local/deploy.sh gateflow --ssh=mikrus --domain-type=cloudflare --domain=shop.mojafirma.pl
+```
+
+Opcjonalne zmienne środowiskowe (jeśli chcesz pominąć interaktywne pytania):
+
+```bash
+# Supabase (z dashboardu → Settings → API)
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
+
+# Stripe (z dashboard.stripe.com/apikeys)
 STRIPE_PK=pk_live_...
 STRIPE_SK=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...  # opcjonalne
-DOMAIN=app.gateflow.pl
+STRIPE_WEBHOOK_SECRET=whsec_...  # opcjonalne, dodasz po instalacji
+
+# Domena
+DOMAIN=shop.example.com
 ```
+
+**Wymagania:** Mikrus 3.0+ (1GB RAM), konto Supabase (darmowe), konto Stripe
 
 ### FileBrowser
 
