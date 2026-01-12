@@ -646,14 +646,30 @@ NODESCRIPT
             PROJECT_IDS=()
             PROJECT_NAMES=()
             i=1
-            while IFS= read -r line; do
-                proj_id=$(echo "$line" | cut -d'|' -f1)
-                proj_name=$(echo "$line" | cut -d'|' -f2)
-                PROJECT_IDS+=("$proj_id")
-                PROJECT_NAMES+=("$proj_name")
-                echo "   $i) $proj_name ($proj_id)"
-                ((i++))
-            done < <(echo "$PROJECTS" | grep -oE '"id":"[^"]+"|"name":"[^"]+"' | paste - - | sed 's/"id":"//g; s/""name":"/ |/g; s/"//g')
+
+            # Użyj jq jeśli dostępne, inaczej grep/sed
+            if command -v jq &>/dev/null; then
+                while IFS=$'\t' read -r proj_id proj_name; do
+                    PROJECT_IDS+=("$proj_id")
+                    PROJECT_NAMES+=("$proj_name")
+                    echo "   $i) $proj_name ($proj_id)"
+                    ((i++))
+                done < <(echo "$PROJECTS" | jq -r '.[] | "\(.id)\t\(.name)"')
+            else
+                # Fallback bez jq - parsuj każdy obiekt osobno
+                while read -r proj_id; do
+                    # Znajdź name dla tego id w JSON
+                    proj_name=$(echo "$PROJECTS" | grep -o "\"id\":\"$proj_id\"[^}]*\"name\":\"[^\"]*\"" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+                    if [ -z "$proj_name" ]; then
+                        # Może name jest przed id
+                        proj_name=$(echo "$PROJECTS" | grep -o "\"name\":\"[^\"]*\"[^}]*\"id\":\"$proj_id\"" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+                    fi
+                    PROJECT_IDS+=("$proj_id")
+                    PROJECT_NAMES+=("$proj_name")
+                    echo "   $i) $proj_name ($proj_id)"
+                    ((i++))
+                done < <(echo "$PROJECTS" | grep -oE '"id":"[^"]+"' | cut -d'"' -f4)
+            fi
 
             echo ""
             read -p "Wybierz numer projektu [1-$((i-1))]: " PROJECT_NUM
@@ -672,8 +688,15 @@ NODESCRIPT
             API_KEYS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys")
 
             SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
-            SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
-            SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+
+            # Parsuj klucze API
+            if command -v jq &>/dev/null; then
+                SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "anon") | .api_key')
+                SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "service_role") | .api_key')
+            else
+                SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+                SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+            fi
 
             if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
                 echo "✅ Klucze Supabase pobrane!"
