@@ -189,7 +189,30 @@ echo ""
 # 6. BUILD APLIKACJI
 # =============================================================================
 
-echo "🛠️  Buduję aplikację (może potrwać 2-3 minuty)..."
+# Sprawdź ilość RAM i ostrzeż użytkownika
+TOTAL_RAM_MB=$(free -m | awk '/^Mem:/{print $2}')
+
+if [ "$TOTAL_RAM_MB" -le 1500 ]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                ║"
+    echo "║   ⏳  INSTALACJA MOŻE POTRWAĆ 10-15 MINUT                      ║"
+    echo "║                                                                ║"
+    echo "║   Twój serwer ma mało pamięci (${TOTAL_RAM_MB}MB RAM).               ║"
+    echo "║   Przygotowanie aplikacji zajmie więcej czasu.                ║"
+    echo "║                                                                ║"
+    echo "║   ⚠️  NIE PRZERYWAJ - to normalne, że długo trwa!              ║"
+    echo "║                                                                ║"
+    echo "║   Po instalacji aplikacja będzie działać szybko i płynnie.    ║"
+    echo "║                                                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    if [ -t 0 ]; then
+        read -p "Naciśnij Enter aby kontynuować..." _
+    fi
+fi
+
+echo "🛠️  Przygotowuję aplikację..."
 cd "$INSTALL_DIR/admin-panel"
 bun install
 bun run build
