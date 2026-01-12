@@ -1,26 +1,211 @@
-# 📂 FileBrowser - Twój prywatny dysk i hosting
+# FileBrowser - Tiiny.host Killer
 
-Lekki menadżer plików przez przeglądarkę. Zarządzaj plikami na serwerze jak w Google Drive.
+Prywatny dysk + publiczny hosting plików. Zamiennik Tiiny.host za ułamek ceny.
 
-## 🚀 Instalacja
+**RAM:** ~160MB (FileBrowser + nginx) | **Dysk:** zależy od plików | **Plan:** Mikrus 1.0+
+
+---
+
+## Szybki start (jedna komenda)
+
+### Cytrus - pełny setup
 
 ```bash
-./local/deploy.sh filebrowser
+DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
+  --ssh=mikrus \
+  --domain-type=cytrus \
+  --domain=files.byst.re \
+  --yes
 ```
 
-## 💡 Funkcje "Tiiny.host Killer"
-Podczas instalacji możesz podać **dwie domeny**:
-1. **Admin Domain (`files.twojadomena.pl`):** Tu się logujesz, zarządzasz plikami, tworzysz foldery. To jest bezpieczne i wymaga hasła.
-2. **Public Domain (`static.twojadomena.pl`):** Wszystko, co wrzucisz do głównego folderu w FileBrowserze, będzie publicznie dostępne pod tym adresem.
+### Cloudflare - pełny setup
 
-## 🔗 Jak błyskawicznie pobrać link do pliku? (Workflow)
-1. Zaloguj się do panelu admina (`files.twojadomena.pl`) i wrzuć plik, np. `oferta.pdf`.
-2. Otwórz w nowej karcie swoją domenę publiczną (`static.twojadomena.pl`).
-3. Zobaczysz tam listę swoich plików. Kliknij prawym przyciskiem na plik i wybierz **"Kopiuj adres linku"**.
-4. To wszystko! Masz link, który możesz wysłać klientowi.
+```bash
+DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
+  --ssh=mikrus \
+  --domain-type=cloudflare \
+  --domain=files.example.com \
+  --yes
+```
 
-## 🛠️ Edycja kodu
-FileBrowser ma wbudowany edytor tekstowy. Możesz poprawić plik `index.html` lub `config.js` (dla Cookie Hub) prosto z przeglądarki, nawet z telefonu.
+Po instalacji masz:
+- `https://files.byst.re` - panel admin (logowanie)
+- `https://static.byst.re` - publiczne pliki (bez logowania)
 
-## ⚠️ Uwaga o prywatności
-Domyślnie na domenie publicznej włączona jest "lista plików" (każdy może zobaczyć nazwy Twoich plików). Jeśli chcesz to wyłączyć (żeby plik był dostępny tylko dla kogoś, kto zna dokładny link), wyedytuj Caddyfile i usuń słowo `browse`.
+---
+
+## Scenariusze instalacji
+
+### 1. Pełny setup (admin + public)
+
+```bash
+# Cytrus
+DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
+  --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
+
+# Cloudflare
+DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
+  --ssh=mikrus --domain-type=cloudflare --domain=files.example.com --yes
+```
+
+### 2. Tylko admin (bez public hosting)
+
+```bash
+./local/deploy.sh filebrowser --ssh=mikrus
+```
+
+Przydatne gdy:
+- Chcesz tylko prywatny dysk
+- Dodasz public hosting później
+- Testujesz przed produkcją
+
+### 3. Dodanie public hosting później
+
+Jeśli zainstalowałeś bez DOMAIN_PUBLIC, możesz dodać go jedną komendą:
+
+```bash
+# Cytrus
+./local/add-static-hosting.sh static.byst.re mikrus
+
+# Cloudflare
+./local/add-static-hosting.sh static.example.com mikrus
+```
+
+Skrypt automatycznie:
+- Uruchomi nginx dla Cytrus lub skonfiguruje Caddy dla Cloudflare
+- Zarejestruje domenę
+- Skonfiguruje katalog /var/www/public
+
+**Opcje:**
+```bash
+./local/add-static-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+
+# Przykłady:
+./local/add-static-hosting.sh static.byst.re                    # domyślne
+./local/add-static-hosting.sh cdn.byst.re mikrus /var/www/cdn   # własny katalog
+./local/add-static-hosting.sh assets.byst.re hanna /var/www/assets 8097  # własny port
+```
+
+---
+
+## Jak to działa
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  files.example.com (ADMIN)                                  │
+│  → FileBrowser z logowaniem                                 │
+│  → Upload, edycja, kasowanie plików                         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ pliki w /var/www/public/
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  static.example.com (PUBLIC)                                │
+│  → Bezpośredni dostęp bez logowania                         │
+│  → https://static.example.com/ebook.pdf                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Przypadki użycia
+
+### Lead Magnet
+```
+1. Wrzuć PDF przez FileBrowser
+2. Link: https://static.example.com/ebook.pdf
+3. Użyj w automatyzacji (n8n, Mailchimp)
+```
+
+### Landing Page
+```
+1. Stwórz index.html
+2. Wrzuć przez FileBrowser
+3. Gotowe: https://static.example.com/
+```
+
+### Oferty dla klientów
+```
+1. Wrzuć: oferta-kowalski.pdf
+2. Wyślij: https://static.example.com/oferta-kowalski.pdf
+```
+
+---
+
+## Porównanie kosztów
+
+| Rozwiązanie | Cena/rok | Limity |
+|-------------|----------|--------|
+| Tiiny.host Pro | ~500 zł | 10 stron |
+| Tiiny.host Business | ~1200 zł | 50 stron |
+| **FileBrowser + Mikrus** | **~240 zł** | **bez limitów** |
+
+---
+
+## Architektura
+
+### Cytrus
+- FileBrowser → port 8095 → Cytrus API
+- nginx:alpine → port 8096 → Cytrus API
+
+### Cloudflare
+- FileBrowser → port 8095 → Caddy reverse_proxy
+- Caddy file_server → /var/www/public (bez dodatkowego portu)
+
+---
+
+## Zarządzanie
+
+```bash
+# Logi
+ssh mikrus "docker logs -f filebrowser-filebrowser-1"
+
+# Restart
+ssh mikrus "cd /opt/stacks/filebrowser && docker compose restart"
+
+# Aktualizacja
+ssh mikrus "cd /opt/stacks/filebrowser && docker compose pull && docker compose up -d"
+
+# Status
+ssh mikrus "docker ps --filter name=filebrowser"
+```
+
+---
+
+## Bezpieczeństwo
+
+**Zmień hasło po pierwszym logowaniu!**
+```
+Domyślne: admin / admin
+```
+
+### Prywatność plików
+- **Admin** (`files.*`) - wymaga logowania
+- **Public** (`static.*`) - dostępne dla każdego
+
+Dla "ukrytych" linków używaj losowych nazw: `oferta-x7k9m2.pdf`
+
+---
+
+## Troubleshooting
+
+### Plik nie widoczny na public
+```bash
+ssh mikrus "sudo chmod -R o+r /var/www/public/"
+```
+
+### 403 Forbidden
+```bash
+ssh mikrus "sudo chown -R 1000:1000 /var/www/public/"
+```
+
+### Cytrus placeholder (3-5 min)
+Poczekaj na propagację lub sprawdź:
+```bash
+ssh mikrus "curl -s localhost:8096/plik.txt"
+```
+
+### nginx nie startuje
+```bash
+ssh mikrus "docker logs filebrowser-static-1"
+```
