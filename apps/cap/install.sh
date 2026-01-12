@@ -151,7 +151,8 @@ if [ "$USE_LOCAL_MINIO" == "true" ]; then
 cat <<EOF | sudo tee -a docker-compose.yaml
 
   cap-minio:
-    image: bitnami/minio:latest
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
     restart: unless-stopped
     ports:
       - "127.0.0.1:3902:9000"
@@ -159,9 +160,8 @@ cat <<EOF | sudo tee -a docker-compose.yaml
     environment:
       - MINIO_ROOT_USER=${S3_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
-      - MINIO_DEFAULT_BUCKETS=${S3_BUCKET}
     volumes:
-      - ./minio-data:/bitnami/minio/data
+      - ./minio-data:/data
     deploy:
       resources:
         limits:
@@ -192,6 +192,19 @@ else
     fi
 fi
 
+# Create MinIO bucket if using local MinIO
+if [ "$USE_LOCAL_MINIO" == "true" ]; then
+    echo ""
+    echo "--- Tworzę bucket MinIO ---"
+    sleep 3  # Poczekaj na start MinIO
+
+    # MinIO automatycznie tworzy bucket przy pierwszym użyciu przez Cap
+    # Alternatywnie można użyć mc client zainstalowanego na hoście:
+    # mc alias set cap-minio http://localhost:3902 ${S3_ACCESS_KEY} ${S3_SECRET_KEY}
+    # mc mb cap-minio/${S3_BUCKET}
+    echo "ℹ️  Bucket zostanie utworzony automatycznie przy pierwszym użyciu"
+fi
+
 echo ""
 echo "--- Konfiguruję HTTPS via Caddy ---"
 if command -v mikrus-expose &> /dev/null; then
@@ -204,6 +217,7 @@ fi
 if [ "$USE_LOCAL_MINIO" == "true" ]; then
     echo ""
     echo "⚠️  MinIO wymaga osobnej konfiguracji proxy dla portu 3902"
+    echo "   Lub skonfiguruj external S3 (Cloudflare R2, AWS S3, etc.)"
 fi
 
 echo ""
