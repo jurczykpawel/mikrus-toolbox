@@ -20,8 +20,7 @@ set -e
 APP_NAME="gateflow"
 INSTALL_DIR="/root/gateflow"
 PORT=${PORT:-3333}
-REPO_URL="${REPO_URL:-git@github.com:pavvel11/gateflow.git}"
-BRANCH="${BRANCH:-dev}"
+GITHUB_REPO="pavvel11/gateflow"
 
 echo "--- 💰 GateFlow Setup ---"
 echo ""
@@ -50,24 +49,31 @@ echo "✅ PM2: v$(pm2 --version)"
 echo ""
 
 # =============================================================================
-# 2. KLONOWANIE REPOZYTORIUM
+# 2. POBIERANIE PRE-BUILT RELEASE
 # =============================================================================
 
-echo "📥 Pobieram GateFlow..."
+mkdir -p "$INSTALL_DIR/admin-panel"
+cd "$INSTALL_DIR/admin-panel"
 
-if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "   Aktualizuję istniejącą instalację..."
-    cd "$INSTALL_DIR"
-    git fetch origin
-    git checkout "$BRANCH"
-    git pull origin "$BRANCH"
+# Sprawdź czy już mamy pliki (aktualizacja vs świeża instalacja)
+if [ -d ".next/standalone" ]; then
+    echo "✅ GateFlow już pobrany - używam istniejących plików"
 else
-    git clone "$REPO_URL" "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
-    git checkout "$BRANCH"
-fi
+    echo "📥 Pobieram GateFlow..."
 
-echo "✅ Kod źródłowy pobrany"
+    # URL do najnowszego releasu (automatyczne przekierowanie)
+    RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+
+    curl -L "$RELEASE_URL" | tar -xz
+
+    if [ ! -d ".next/standalone" ]; then
+        echo "❌ Nie udało się pobrać GateFlow."
+        echo "   Sprawdź czy repo jest publiczne lub pobierz ręcznie."
+        exit 1
+    fi
+
+    echo "✅ GateFlow pobrany"
+fi
 echo ""
 
 # =============================================================================
@@ -76,17 +82,20 @@ echo ""
 
 ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
 
-if [ -f "$ENV_FILE" ] && grep -q "NEXT_PUBLIC_SUPABASE_URL" "$ENV_FILE"; then
+if [ -f "$ENV_FILE" ] && grep -q "SUPABASE_URL=" "$ENV_FILE"; then
     echo "✅ Konfiguracja Supabase już istnieje"
 elif [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
     # Zmienne przekazane z deploy.sh
     echo "✅ Konfiguruję Supabase..."
-    mkdir -p "$INSTALL_DIR/admin-panel"
     cat > "$ENV_FILE" <<ENVEOF
-# Supabase
+# Supabase (runtime - bez NEXT_PUBLIC_)
+SUPABASE_URL=$SUPABASE_URL
+SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
+
+# Legacy (dla kompatybilności)
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 ENVEOF
 else
     echo "❌ Brak konfiguracji Supabase!"
@@ -99,7 +108,7 @@ fi
 # 4. KONFIGURACJA STRIPE
 # =============================================================================
 
-if grep -q "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_" "$ENV_FILE" 2>/dev/null; then
+if grep -q "STRIPE_PUBLISHABLE_KEY=pk_" "$ENV_FILE" 2>/dev/null; then
     echo "✅ Konfiguracja Stripe już istnieje"
 else
     echo ""
@@ -144,9 +153,9 @@ else
         cat >> "$ENV_FILE" <<ENVEOF
 
 # Stripe
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
+STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
 STRIPE_SECRET_KEY=$STRIPE_SK
-STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_TODO_UPDATE_AFTER_WEBHOOK_SETUP}
+STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
 ENVEOF
     fi
 fi
@@ -155,7 +164,7 @@ fi
 # 5. KONFIGURACJA DOMENY I URL
 # =============================================================================
 
-if grep -q "NEXT_PUBLIC_SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
+if grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
     echo "✅ Konfiguracja URL już istnieje"
 else
     if [ -n "$DOMAIN" ]; then
@@ -170,10 +179,13 @@ else
 
     cat >> "$ENV_FILE" <<ENVEOF
 
-# Site URLs
+# Site URLs (runtime)
+SITE_URL=$SITE_URL
+MAIN_DOMAIN=${DOMAIN:-localhost}
+
+# Legacy (dla kompatybilności)
 NEXT_PUBLIC_SITE_URL=$SITE_URL
 NEXT_PUBLIC_BASE_URL=$SITE_URL
-MAIN_DOMAIN=${DOMAIN:-localhost}
 
 # Production
 NODE_ENV=production
@@ -186,81 +198,39 @@ echo "✅ Konfiguracja zapisana w $ENV_FILE"
 echo ""
 
 # =============================================================================
-# 6. BUILD APLIKACJI
+# 6. KOPIOWANIE ENV DO STANDALONE
 # =============================================================================
 
-# Sprawdź ilość RAM i ostrzeż użytkownika
-TOTAL_RAM_MB=$(free -m | awk '/^Mem:/{print $2}')
+echo "📋 Konfiguruję standalone server..."
 
-if [ "$TOTAL_RAM_MB" -le 1500 ]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║                                                                ║"
-    echo "║   ⏳  INSTALACJA MOŻE POTRWAĆ 10-15 MINUT                      ║"
-    echo "║                                                                ║"
-    echo "║   Twój serwer ma mało pamięci (${TOTAL_RAM_MB}MB RAM).               ║"
-    echo "║   Przygotowanie aplikacji zajmie więcej czasu.                ║"
-    echo "║                                                                ║"
-    echo "║   ⚠️  NIE PRZERYWAJ - to normalne, że długo trwa!              ║"
-    echo "║                                                                ║"
-    echo "║   Po instalacji aplikacja będzie działać szybko i płynnie.    ║"
-    echo "║                                                                ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    if [ -t 0 ]; then
-        read -p "Naciśnij Enter aby kontynuować..." _
-    fi
+STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+
+if [ -d "$STANDALONE_DIR" ]; then
+    cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"
+    echo "✅ Konfiguracja skopiowana do standalone"
+else
+    echo "⚠️  Brak folderu standalone - używam standardowego startu"
 fi
 
-echo "🛠️  Przygotowuję aplikację..."
-cd "$INSTALL_DIR/admin-panel"
-bun install
-bun run build
-
-echo "✅ Build zakończony"
-echo ""
-
 # =============================================================================
-# 7. KONFIGURACJA PM2
-# =============================================================================
-
-echo "⚙️  Konfiguruję PM2..."
-
-cat > "$INSTALL_DIR/ecosystem.config.js" <<'PMEOF'
-module.exports = {
-  apps: [{
-    name: "gateflow-admin",
-    cwd: "./admin-panel",
-    script: process.env.HOME + "/.bun/bin/bun",
-    args: "run start",
-    env: {
-      NODE_ENV: "production",
-      PORT: 3333
-    },
-    instances: 1,
-    exec_mode: "fork",
-    autorestart: true,
-    max_memory_restart: "900M",
-    error_file: "./admin-panel/logs/error.log",
-    out_file: "./admin-panel/logs/out.log"
-  }]
-};
-PMEOF
-
-mkdir -p "$INSTALL_DIR/admin-panel/logs"
-
-# =============================================================================
-# 8. START APLIKACJI
+# 7. START APLIKACJI
 # =============================================================================
 
 echo "🚀 Uruchamiam GateFlow..."
-cd "$INSTALL_DIR"
 
 # Zatrzymaj jeśli działa
 pm2 delete gateflow-admin 2>/dev/null || true
 
-# Uruchom
-pm2 start ecosystem.config.js
+# Uruchom - preferuj standalone server (szybszy start, mniej RAM)
+if [ -f "$STANDALONE_DIR/server.js" ]; then
+    cd "$STANDALONE_DIR"
+    PORT=$PORT HOSTNAME=0.0.0.0 pm2 start "node server.js" --name gateflow-admin
+else
+    # Fallback do bun run start
+    cd "$INSTALL_DIR/admin-panel"
+    pm2 start "bun run start" --name gateflow-admin
+fi
+
 pm2 save
 
 # Poczekaj i sprawdź
@@ -276,28 +246,15 @@ fi
 
 # Health check
 sleep 2
-if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" | grep -q "200\|301\|302"; then
-    echo "✅ Aplikacja odpowiada na porcie $PORT"
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+    echo "✅ Aplikacja odpowiada na porcie $PORT (HTTP $HTTP_CODE)"
 else
-    echo "⚠️  Aplikacja może jeszcze się uruchamiać..."
-fi
-
-# Caddy/HTTPS - dla Cloudflare (Cytrus jest obsługiwany przez deploy.sh)
-if [ -n "$DOMAIN" ] && command -v mikrus-expose &> /dev/null; then
-    # Sprawdź czy to nie jest domena Cytrus
-    case "$DOMAIN" in
-        *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl)
-            # Cytrus - obsługiwane przez deploy.sh
-            ;;
-        *)
-            # Cloudflare - użyj Caddy
-            sudo mikrus-expose "$DOMAIN" "$PORT"
-            ;;
-    esac
+    echo "⚠️  Aplikacja może jeszcze się uruchamiać... (HTTP $HTTP_CODE)"
 fi
 
 # =============================================================================
-# 9. PODSUMOWANIE
+# 8. PODSUMOWANIE
 # =============================================================================
 
 echo ""
