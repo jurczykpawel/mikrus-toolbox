@@ -32,6 +32,7 @@ Przygotowaliśmy gotowe skrypty instalacyjne ("One-Click"), które stawiają us�
 | **ntfy** | Pushover | Serwer powiadomień PUSH. Wysyłaj alerty z n8n prosto na telefon. |
 | **Redis** | - | Pamięć podręczna (cache). Przyspiesza n8n i inne aplikacje. |
 | **MCP Docker** | - | Most AI ↔ Serwer. Pozwól Claude/Cursor zarządzać kontenerami przez SSH. |
+| **MinIO** | AWS S3 | Self-hosted storage S3-compatible. Dla Cap, Typebot, lub własnych plików. |
 | **Power Tools** | - | Zestaw CLI (`yt-dlp`, `ffmpeg`, `pup`) do zaawansowanej automatyzacji na serwerze. |
 
 ### 💰 Marketing & Sprzedaż
@@ -490,6 +491,103 @@ A:
 
 **Q: Co z bazą danych?**
 A: Większość skryptów (n8n, Umami, Listmonk) poprosi o dane do Postgresa. **NIE INSTALUJ POSTGRESA NA MIKRUSIE 3.0.** Kup "Cegłę" bazy danych na Mikrusie (29 zł/rok) lub użyj darmowego tieru w chmurze (Neon, Supabase). To oszczędza mnóstwo zasobów.
+
+---
+
+## 💰 Kalkulator Oszczędności (DRAFT)
+
+> ⚠️ **Sekcja w budowie** - uzupełnimy po testach wszystkich narzędzi
+
+### Koszt Mikrusa
+
+| Plan | RAM | Dysk | Cena/mies | Cena/rok |
+|------|-----|------|-----------|----------|
+| Mikrus 1.0 | 256MB | 2.5GB | 7 zł | 84 zł |
+| Mikrus 2.0 | 512MB | 5GB | 12 zł | 144 zł |
+| Mikrus 3.0 | 1GB | 10GB | 20 zł | 240 zł |
+| Mikrus 4.0 | 2GB | 20GB | 35 zł | 420 zł |
+| PostgreSQL (dedykowana) | - | 10GB | ~2.5 zł | 29 zł |
+| Domena (.pl) | - | - | - | ~50 zł |
+
+### Ile kosztują SaaS-y w chmurze?
+
+| Narzędzie | Zastępuje | Cena SaaS/mies | Cena SaaS/rok | Na Mikrusie |
+|-----------|-----------|----------------|---------------|-------------|
+| n8n | Zapier Pro | $29-99 | $348-1188 | 0 zł |
+| Listmonk | Mailchimp (5k) | $50+ | $600+ | 0 zł |
+| Typebot | Typeform Pro | $50+ | $600+ | 0 zł |
+| Umami | - | $9+ | $108+ | 0 zł |
+| Uptime Kuma | UptimeRobot Pro | $7+ | $84+ | 0 zł |
+| NocoDB | Airtable Pro | $20+ | $240+ | 0 zł |
+| Cap | Loom Business | $15+ | $180+ | 0 zł |
+| GateFlow | Gumroad/EasyCart | 10%+ prowizji | $$$$ | 0 zł |
+| FileBrowser | Tiiny.host Pro | $6+ | $72+ | 0 zł |
+| Vaultwarden | 1Password Teams | $8/user | $96/user | 0 zł |
+| Stirling-PDF | Adobe Acrobat | $15+ | $180+ | 0 zł |
+
+> 📊 TODO: Dokładny research cen (tier, limity, ukryte koszty)
+
+### Case Study: Solopreneur (sprzedaż kursów)
+
+**Potrzeby:**
+- Automatyzacja sprzedaży (n8n)
+- Newsletter (Listmonk)
+- Formularz lead capture (Typebot)
+- Monitoring (Uptime Kuma)
+- Analityka (Umami)
+- Hosting PDF-ów (FileBrowser)
+
+**Koszt SaaS:**
+| Usługa | Miesięcznie | Rocznie |
+|--------|-------------|---------|
+| Zapier Pro | $29 | $348 |
+| Mailchimp (5k) | $50 | $600 |
+| Typeform Pro | $50 | $600 |
+| UptimeRobot Pro | $7 | $84 |
+| GA4 (darmowy, ale dane Google) | $0 | $0 |
+| Tiiny.host Pro | $6 | $72 |
+| **SUMA** | **$142** | **$1704 (~7000 zł)** |
+
+**Koszt Mikrus:**
+| Pozycja | Rocznie |
+|---------|---------|
+| Mikrus 3.0 | 240 zł |
+| Domena .pl | 50 zł |
+| PostgreSQL (Cloud) | 29 zł |
+| **SUMA** | **319 zł** |
+
+**Oszczędność:** ~6700 zł/rok (95%!)
+
+### Case Study: Mała Agencja (5 osób)
+
+> TODO: Scenariusz z Vaultwarden, NocoDB jako CRM, większe limity mailingowe
+
+### Case Study: SaaS Founder (MVP)
+
+> TODO: Scenariusz z Cap do onboardingu, Typebot jako support chat, n8n do integracji
+
+### Czas instalacji
+
+| Co | Pierwszy raz | Powtórka |
+|----|--------------|----------|
+| Setup serwera + Docker | 30 min | 10 min |
+| n8n + baza danych | 15 min | 5 min |
+| Każda kolejna aplikacja | 5-10 min | 2-5 min |
+| Pełny stack (10 narzędzi) | 2-3h | 1h |
+
+> 💡 Z Claude Code czas spada o ~50% (AI robi za Ciebie)
+
+### Wymagania serwera
+
+| Stack | Wymagany plan | RAM używany |
+|-------|---------------|-------------|
+| Podstawa (Caddy + Dockge) | Mikrus 1.0 | ~100MB |
+| + n8n | Mikrus 3.0 | ~500MB |
+| + Listmonk + Uptime Kuma | Mikrus 3.0 | ~800MB |
+| + Typebot + GateFlow | Mikrus 4.0 | ~1.5GB |
+| Pełny stack | Mikrus 4.0 | ~1.8GB |
+
+> ⚠️ Stirling-PDF wymaga Mikrus 4.0 (2GB RAM). Alternatywa: Gotenberg (~150MB)
 
 ---
 **Twórca:** Paweł (Lazy Engineer)

@@ -322,6 +322,26 @@ DOMAIN=app.gateflow.pl
 ```bash
 DOMAIN=...         # Opcjonalna domena panelu admin
 DOMAIN_PUBLIC=...  # Opcjonalna domena dla public hosting
+PORT=...           # Port FileBrowser (domyślnie 8095)
+PORT_PUBLIC=...    # Port static hosting (domyślnie 8096)
+```
+
+Przykłady instalacji:
+
+```bash
+# Cytrus - pełny setup (admin + public)
+DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
+  --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
+
+# Cloudflare - pełny setup
+DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
+  --ssh=mikrus --domain-type=cloudflare --domain=files.example.com --yes
+
+# Tylko admin (bez public hosting)
+./local/deploy.sh filebrowser --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
+
+# Dodanie public hosting później
+./local/add-static-hosting.sh static.byst.re mikrus
 ```
 
 ### Typebot

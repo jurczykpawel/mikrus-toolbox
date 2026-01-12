@@ -46,19 +46,43 @@ Skrypt zapyta o:
 
 ## 📦 Zalecana konfiguracja Storage
 
-### Cloudflare R2 (najtańsze)
+### Opcja 1: MinIO z Mikrus Toolbox (najprostsze)
+Jeśli masz zainstalowane MinIO jako osobną aplikację:
+```bash
+# Najpierw zainstaluj MinIO
+./local/deploy.sh minio --ssh=ALIAS
+
+# Credentials znajdziesz w:
+ssh ALIAS "cat /opt/stacks/minio/.env"
+
+# Potem zainstaluj Cap z zewnętrznym S3
+S3_ENDPOINT=http://minio:9000 \
+S3_ACCESS_KEY=admin \
+S3_SECRET_KEY=<hasło-z-minio> \
+S3_BUCKET=cap-videos \
+./local/deploy.sh cap --ssh=ALIAS
+```
+
+### Opcja 2: Cloudflare R2 (najtańsze dla dużych ilości)
 - Darmowe 10GB/miesiąc
 - Brak opłat za transfer wychodzący (egress)
 - Endpoint: `https://<account-id>.r2.cloudflarestorage.com`
 - Region: `auto`
 
-### AWS S3
+### Opcja 3: AWS S3
 - Pay-as-you-go
 - Region: `eu-central-1` (Frankfurt) dla niskich latencji z Polski
 
-### Backblaze B2
+### Opcja 4: Backblaze B2
 - Tanie storage
 - Kompatybilne z S3 API
+
+### Opcja 5: Lokalny MinIO (wbudowany w Cap)
+Jeśli potrzebujesz MinIO tylko dla Cap:
+```bash
+USE_LOCAL_MINIO=true ./local/deploy.sh cap --ssh=ALIAS
+```
+MinIO wystartuje jako kontener w tym samym stacku co Cap.
 
 ---
 
