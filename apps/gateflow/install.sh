@@ -26,7 +26,11 @@ GITHUB_REPO="pavvel11/gateflow"
 # Wyciągnij pierwszą część domeny jako nazwę instancji
 # shop.example.com → shop
 # abc123.byst.re → abc123
-# Jeśli brak domeny lub "-" → użyj domyślnej nazwy
+#
+# UWAGA: Auto-cytrus (DOMAIN="-") = tylko SINGLE INSTANCE!
+# Dla multi-instance musisz podać konkretne domeny z góry.
+# Drugie wywołanie z DOMAIN="-" nadpisałoby pierwszy katalog.
+#
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     INSTANCE_NAME="${DOMAIN%%.*}"
 else
@@ -41,6 +45,20 @@ if [ -n "$INSTANCE_NAME" ]; then
 else
     INSTALL_DIR="/opt/stacks/gateflow"
     PM2_NAME="gateflow"
+
+    # Sprawdź czy katalog już istnieje (zapobiegaj nadpisaniu przy auto-cytrus)
+    if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
+        echo "❌ Katalog $INSTALL_DIR już istnieje!"
+        echo ""
+        echo "   Auto-cytrus (--domain=-) wspiera tylko JEDNĄ instancję."
+        echo "   Dla wielu instancji użyj konkretnych domen:"
+        echo "   ./local/deploy.sh gateflow --domain=shop.example.com"
+        echo "   ./local/deploy.sh gateflow --domain=test.example.com"
+        echo ""
+        echo "   Lub usuń istniejącą instalację:"
+        echo "   pm2 delete gateflow && rm -rf $INSTALL_DIR"
+        exit 1
+    fi
 fi
 
 PORT=${PORT:-3333}
