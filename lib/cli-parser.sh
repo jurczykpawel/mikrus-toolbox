@@ -151,6 +151,8 @@ parse_args() {
             --yes|-y) YES_MODE=true ;;
             --dry-run) DRY_RUN=true ;;
             --update) UPDATE_MODE=true ;;
+            --build-file=*) BUILD_FILE="${1#*=}" ;;
+            --build-file) BUILD_FILE="$2"; shift ;;
             --help|-h) show_help; exit 0 ;;
 
             # Unknown options
@@ -170,7 +172,7 @@ parse_args() {
 
     # Eksportuj zmienne
     export SSH_ALIAS DB_SOURCE DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS
-    export DOMAIN DOMAIN_TYPE YES_MODE DRY_RUN UPDATE_MODE
+    export DOMAIN DOMAIN_TYPE YES_MODE DRY_RUN UPDATE_MODE BUILD_FILE
 }
 
 # =============================================================================

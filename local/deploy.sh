@@ -65,6 +65,7 @@ Tryby:
   --yes, -y            Pomiń wszystkie potwierdzenia
   --dry-run            Pokaż co się wykona bez wykonania
   --update             Aktualizuj istniejącą aplikację (zamiast instalować)
+  --build-file=PATH    Użyj lokalnego pliku tar.gz (dla --update, gdy repo jest prywatne)
   --help, -h           Pokaż tę pomoc
 
 Przykłady:
@@ -88,6 +89,9 @@ Przykłady:
 
   # Aktualizacja istniejącej aplikacji
   ./local/deploy.sh gateflow --ssh=hanna --update
+
+  # Aktualizacja z lokalnego pliku (gdy repo jest prywatne)
+  ./local/deploy.sh gateflow --ssh=hanna --update --build-file=~/Downloads/gateflow-build.tar.gz
 
 EOF
 }
@@ -145,38 +149,82 @@ if [ "$UPDATE_MODE" = true ]; then
         exit 0
     fi
 
-    # Dla GateFlow - sprawdź DATABASE_URL
+    # Dla GateFlow - pobierz DATABASE_URL
     if [ "$APP_NAME" = "gateflow" ]; then
         if [ -z "$DATABASE_URL" ]; then
             SUPABASE_CONFIG="$HOME/.config/gateflow/supabase.env"
             if [ -f "$SUPABASE_CONFIG" ]; then
                 source "$SUPABASE_CONFIG"
+                if [ -n "$DATABASE_URL" ]; then
+                    echo "✅ Używam zapisanego adresu bazy danych"
+                fi
             fi
         fi
 
+        # Jeśli nadal nie mamy - zapytaj (ale tylko interaktywnie)
         if [ -z "$DATABASE_URL" ] && [ "$YES_MODE" != true ]; then
             echo ""
-            echo "Potrzebuję adres bazy danych do aktualizacji struktury."
-            echo "(Jeśli nie było zmian w bazie, możesz pominąć)"
+            echo -e "${YELLOW}⚠️  Brak zapisanego adresu bazy danych${NC}"
+            echo ""
+            echo "Potrzebuję go żeby zaktualizować strukturę bazy (jeśli są zmiany)."
+            echo "Znajdziesz go w: Supabase Dashboard → Settings → Database → Connection string → URI"
             echo ""
             read -p "Database URL (postgresql://...) lub Enter aby pominąć: " DATABASE_URL
+
+            # Zapisz na przyszłość
+            if [ -n "$DATABASE_URL" ]; then
+                mkdir -p "$HOME/.config/gateflow"
+                if [ -f "$SUPABASE_CONFIG" ]; then
+                    echo "DATABASE_URL='$DATABASE_URL'" >> "$SUPABASE_CONFIG"
+                else
+                    echo "DATABASE_URL='$DATABASE_URL'" > "$SUPABASE_CONFIG"
+                fi
+                chmod 600 "$SUPABASE_CONFIG"
+                echo "   ✅ Zapisano na przyszłość"
+            fi
         fi
     fi
 
     echo ""
     echo "🚀 Uruchamiam aktualizację..."
 
-    # Skopiuj skrypt na serwer i uruchom
+    # Skopiuj skrypt na serwer
     REMOTE_SCRIPT="/tmp/mikrus-update-$$.sh"
     scp -q "$UPDATE_SCRIPT" "$SSH_ALIAS:$REMOTE_SCRIPT"
 
-    # Przekaż DATABASE_URL jeśli mamy
+    # Jeśli mamy lokalny plik builda, skopiuj go na serwer
+    REMOTE_BUILD_FILE=""
+    if [ -n "$BUILD_FILE" ]; then
+        # Rozwiń ~ do pełnej ścieżki
+        BUILD_FILE="${BUILD_FILE/#\~/$HOME}"
+
+        if [ ! -f "$BUILD_FILE" ]; then
+            echo -e "${RED}❌ Plik nie istnieje: $BUILD_FILE${NC}"
+            exit 1
+        fi
+
+        echo "📤 Kopiuję plik buildu na serwer..."
+        REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
+        scp -q "$BUILD_FILE" "$SSH_ALIAS:$REMOTE_BUILD_FILE"
+        echo "   ✅ Skopiowano"
+    fi
+
+    # Przekaż zmienne środowiskowe
     ENV_VARS=""
     if [ -n "$DATABASE_URL" ]; then
         ENV_VARS="DATABASE_URL='$DATABASE_URL'"
     fi
+    if [ -n "$REMOTE_BUILD_FILE" ]; then
+        ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
+    fi
 
-    if ssh -t "$SSH_ALIAS" "export $ENV_VARS; bash '$REMOTE_SCRIPT'; rm -f '$REMOTE_SCRIPT'"; then
+    # Uruchom skrypt i posprzątaj
+    CLEANUP_CMD="rm -f '$REMOTE_SCRIPT'"
+    if [ -n "$REMOTE_BUILD_FILE" ]; then
+        CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_BUILD_FILE'"
+    fi
+
+    if ssh -t "$SSH_ALIAS" "export $ENV_VARS; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
         echo -e "${GREEN}✅ Aktualizacja zakończona!${NC}"
     else

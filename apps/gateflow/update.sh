@@ -5,12 +5,13 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   Na serwerze: ./apps/gateflow/update.sh
-#   Lokalnie przez SSH: ssh hanna 'bash -s' < apps/gateflow/update.sh
+#   ./local/deploy.sh gateflow --ssh=hanna --update
+#   ./local/deploy.sh gateflow --ssh=hanna --update --build-file=~/Downloads/gateflow-build.tar.gz
 #
 # Zmienne środowiskowe:
-#   DATABASE_URL - URL do bazy Supabase (dla migracji)
-#   SKIP_MIGRATIONS - ustaw na 1 aby pominąć migracje
+#   DATABASE_URL - URL do bazy Supabase (dla aktualizacji bazy)
+#   BUILD_FILE - ścieżka do lokalnego pliku tar.gz (zamiast pobierania z GitHub)
+#   SKIP_MIGRATIONS - ustaw na 1 aby pominąć aktualizację bazy
 
 set -e
 
@@ -61,7 +62,6 @@ echo "   Aktualna wersja: $CURRENT_VERSION"
 # =============================================================================
 
 echo ""
-echo "📥 Pobieram najnowszą wersję..."
 
 # Backup starej konfiguracji
 cp "$ENV_FILE" "$INSTALL_DIR/.env.local.backup"
@@ -73,10 +73,23 @@ trap "rm -rf $TEMP_DIR" EXIT
 
 cd "$TEMP_DIR"
 
-RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
-if ! curl -L "$RELEASE_URL" | tar -xz; then
-    echo -e "${RED}❌ Nie udało się pobrać nowej wersji${NC}"
-    exit 1
+# Sprawdź czy mamy lokalny plik
+if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
+    echo "📦 Używam lokalnego pliku: $BUILD_FILE"
+    if ! tar -xzf "$BUILD_FILE"; then
+        echo -e "${RED}❌ Nie udało się rozpakować pliku${NC}"
+        exit 1
+    fi
+else
+    echo "📥 Pobieram z GitHub..."
+    RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+    if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
+        echo -e "${RED}❌ Nie udało się pobrać nowej wersji${NC}"
+        echo ""
+        echo "Jeśli repo jest prywatne, użyj --build-file:"
+        echo "   ./local/deploy.sh gateflow --ssh=hanna --update --build-file=~/Downloads/gateflow-build.tar.gz"
+        exit 1
+    fi
 fi
 
 if [ ! -d ".next/standalone" ]; then
