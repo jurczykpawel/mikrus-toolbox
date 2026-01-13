@@ -154,6 +154,21 @@ Gdy tworzysz `apps/<newapp>/install.sh`:
 # Wymagane przed użyciem dns-add.sh
 ```
 
+### setup-cloudflare-optimize.sh - Optymalizacja Cloudflare
+
+```bash
+./local/setup-cloudflare-optimize.sh <domena>
+
+# Ustawia optymalne ustawienia dla Mikrus:
+#   - SSL Flexible (wymagane - Mikrus nie ma certyfikatu)
+#   - Brotli, HTTP/2, HTTP/3, Early Hints
+#   - Always HTTPS, Min TLS 1.2
+#   - Cache Rules: /_next/static/* (1 rok)
+#   - Bypass cache: /api/*
+# Przykład:
+./local/setup-cloudflare-optimize.sh app.mojadomena.pl
+```
+
 ### sync.sh - Synchronizacja plików
 
 ```bash
