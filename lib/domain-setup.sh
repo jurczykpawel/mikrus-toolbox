@@ -436,6 +436,7 @@ configure_domain_cloudflare() {
 
     local REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
     local DNS_SCRIPT="$REPO_ROOT/local/dns-add.sh"
+    local OPTIMIZE_SCRIPT="$REPO_ROOT/local/setup-cloudflare-optimize.sh"
 
     echo ""
     echo "☁️  Konfiguruję DNS w Cloudflare..."
@@ -450,6 +451,12 @@ configure_domain_cloudflare() {
         fi
     else
         echo -e "${YELLOW}⚠️  Nie znaleziono dns-add.sh${NC}"
+    fi
+
+    # Optymalizacja ustawień Cloudflare (SSL Flexible, cache, kompresja)
+    if [ -f "$OPTIMIZE_SCRIPT" ]; then
+        echo ""
+        bash "$OPTIMIZE_SCRIPT" "$DOMAIN" || echo -e "${YELLOW}⚠️  Optymalizacja Cloudflare pominięta${NC}"
     fi
 
     # Konfiguruj Caddy na serwerze (nawet jeśli DNS nie wymagał zmian)
