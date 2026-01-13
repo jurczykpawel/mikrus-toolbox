@@ -273,13 +273,21 @@ select_supabase_project() {
 
     SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
 
-    # Parsuj klucze API
+    # Parsuj klucze API (nowy format: publishable/secret, fallback do legacy)
     if command -v jq &>/dev/null; then
-        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "anon") | .api_key')
-        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "service_role") | .api_key')
+        # Nowe klucze (publishable/secret)
+        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.type == "publishable" and .name == "default") | .api_key')
+        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.type == "secret" and .name == "default") | .api_key')
+        # Fallback do legacy jeśli nowe nie istnieją
+        [ -z "$SUPABASE_ANON_KEY" ] && SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "anon") | .api_key')
+        [ -z "$SUPABASE_SERVICE_KEY" ] && SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "service_role") | .api_key')
     else
-        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
-        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        # Nowe klucze (szukamy sb_publishable_ i sb_secret_)
+        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"type":"publishable"[^}]*"api_key":"[^"]*"' | head -1 | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"type":"secret"[^}]*"api_key":"[^"]*"' | head -1 | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        # Fallback do legacy
+        [ -z "$SUPABASE_ANON_KEY" ] && SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        [ -z "$SUPABASE_SERVICE_KEY" ] && SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
     fi
 
     if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
@@ -324,13 +332,21 @@ fetch_supabase_keys_by_ref() {
         return 1
     fi
 
-    # Parsuj klucze API
+    # Parsuj klucze API (nowy format: publishable/secret, fallback do legacy)
     if command -v jq &>/dev/null; then
-        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "anon") | .api_key')
-        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "service_role") | .api_key')
+        # Nowe klucze (publishable/secret)
+        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.type == "publishable" and .name == "default") | .api_key')
+        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.type == "secret" and .name == "default") | .api_key')
+        # Fallback do legacy jeśli nowe nie istnieją
+        [ -z "$SUPABASE_ANON_KEY" ] && SUPABASE_ANON_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "anon") | .api_key')
+        [ -z "$SUPABASE_SERVICE_KEY" ] && SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | jq -r '.[] | select(.name == "service_role") | .api_key')
     else
-        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
-        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        # Nowe klucze (szukamy sb_publishable_ i sb_secret_)
+        SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"type":"publishable"[^}]*"api_key":"[^"]*"' | head -1 | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"type":"secret"[^}]*"api_key":"[^"]*"' | head -1 | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        # Fallback do legacy
+        [ -z "$SUPABASE_ANON_KEY" ] && SUPABASE_ANON_KEY=$(echo "$API_KEYS" | grep -o '"anon"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+        [ -z "$SUPABASE_SERVICE_KEY" ] && SUPABASE_SERVICE_KEY=$(echo "$API_KEYS" | grep -o '"service_role"[^}]*"api_key":"[^"]*"' | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
     fi
 
     if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
