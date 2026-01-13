@@ -84,6 +84,9 @@ fi
 echo "   Zone ID: $ZONE_ID"
 echo ""
 
+# Śledzenie błędów uprawnień
+PERMISSION_ERRORS=0
+
 # Funkcja do ustawiania opcji zone
 set_zone_setting() {
     local SETTING="$1"
@@ -102,6 +105,9 @@ set_zone_setting() {
     else
         ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4)
         echo -e "${YELLOW}⚠️  $ERROR${NC}"
+        if echo "$ERROR" | grep -qi "unauthorized\|authentication"; then
+            PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+        fi
     fi
 }
 
@@ -198,10 +204,12 @@ else
         --data "$FULL_RULESET")
 fi
 
+CACHE_RULE_OK=false
 if echo "$RESPONSE" | grep -q '"success":true'; then
     echo -e "${GREEN}✅${NC}"
     echo "      /_next/static/* → cache 1 rok"
     echo "      /api/* → bypass cache"
+    CACHE_RULE_OK=true
 else
     ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4)
     if [ -n "$ERROR" ]; then
@@ -209,18 +217,37 @@ else
     else
         echo -e "${YELLOW}⚠️  Nie udało się (może brak uprawnień do Cache Rules)${NC}"
     fi
+    if echo "$ERROR" | grep -qi "unauthorized\|authentication"; then
+        PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
+    fi
 fi
 
 echo ""
-echo -e "${GREEN}🎉 Optymalizacja zakończona!${NC}"
-echo ""
-echo "📋 Ustawione:"
-echo "   • SSL: Flexible (wymagane dla Mikrus)"
-echo "   • Kompresja: Brotli"
-echo "   • HTTPS: wymuszony"
-echo "   • TLS: minimum 1.2"
-echo "   • HTTP/2 + HTTP/3"
-echo "   • Early Hints"
-echo "   • Cache: /_next/static/* (1 rok)"
-echo "   • No-cache: /api/*"
+
+# Podsumowanie
+if [ "$PERMISSION_ERRORS" -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Niektóre ustawienia pominięte (brak uprawnień tokenu)${NC}"
+    echo ""
+    echo "   Twój token nie ma wymaganych uprawnień. Utwórz nowy token z:"
+    echo "   • Zone → Zone Settings → Edit  (SSL, Brotli, HTTPS, TLS)"
+    echo "   • Zone → Cache Rules → Edit    (cache dla Next.js)"
+    echo ""
+    echo "   Utwórz token: https://dash.cloudflare.com/profile/api-tokens"
+    echo "   Lub ustaw ręcznie w panelu Cloudflare:"
+    echo "   → SSL/TLS: Flexible"
+    echo "   → Speed → Optimization: włącz Brotli"
+    echo ""
+else
+    echo -e "${GREEN}🎉 Optymalizacja zakończona!${NC}"
+    echo ""
+    echo "📋 Ustawione:"
+    echo "   • SSL: Flexible (wymagane dla Mikrus)"
+    echo "   • Kompresja: Brotli"
+    echo "   • HTTPS: wymuszony"
+    echo "   • TLS: minimum 1.2"
+    echo "   • HTTP/2 + HTTP/3"
+    echo "   • Early Hints"
+    echo "   • Cache: /_next/static/* (1 rok)"
+    echo "   • No-cache: /api/*"
+fi
 echo ""
