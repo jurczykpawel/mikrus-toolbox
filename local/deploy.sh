@@ -713,6 +713,53 @@ NODESCRIPT
     echo ""
 fi
 
+# =============================================================================
+# TURNSTILE (dla GateFlow + Cloudflare) - PRZED instalacją
+# =============================================================================
+
+if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" = "cloudflare" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    echo ""
+    echo "🔒 Konfiguracja Turnstile (CAPTCHA)..."
+
+    if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
+        if [ "$YES_MODE" = true ]; then
+            # W trybie --yes sprawdź czy mamy zapisany token
+            TURNSTILE_TOKEN_FILE="$HOME/.config/cloudflare/turnstile_token"
+            if [ -f "$TURNSTILE_TOKEN_FILE" ]; then
+                echo "   Automatyczna konfiguracja Turnstile..."
+                # TODO: dodać --yes do setup-turnstile.sh
+            fi
+            echo -e "${YELLOW}⚠️  Tryb automatyczny: Turnstile wymaga interakcji.${NC}"
+            echo "   Uruchom po instalacji: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
+        else
+            # Tryb interaktywny - zapytaj
+            echo ""
+            read -p "Skonfigurować Turnstile teraz? [T/n]: " SETUP_TURNSTILE
+            if [[ ! "$SETUP_TURNSTILE" =~ ^[Nn]$ ]]; then
+                # Uruchom setup-turnstile interaktywnie
+                "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN"
+
+                # Czytaj klucze z zapisanego pliku
+                KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
+                if [ -f "$KEYS_FILE" ]; then
+                    source "$KEYS_FILE"
+                    if [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
+                        EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
+                        echo -e "${GREEN}✅ Klucze Turnstile zostaną przekazane do instalacji${NC}"
+                    fi
+                fi
+            else
+                echo ""
+                echo "⏭️  Pominięto. Możesz skonfigurować później:"
+                echo "   ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Brak skryptu setup-turnstile.sh${NC}"
+    fi
+    echo ""
+fi
+
 REMOTE_SCRIPT="/tmp/mikrus-deploy-$$.sh"
 scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT"
 

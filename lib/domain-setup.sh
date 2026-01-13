@@ -470,10 +470,15 @@ configure_domain_cloudflare() {
         fi
     else
         # Docker app - użyj reverse_proxy
-        if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'"; then
+        if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
             echo -e "${GREEN}✅ HTTPS skonfigurowany (reverse_proxy)${NC}"
         else
-            echo -e "${YELLOW}⚠️  mikrus-expose niedostępny - pomiń jeśli używasz Cytrus${NC}"
+            # Sprawdź czy domena już jest w Caddyfile
+            if ssh "$SSH_ALIAS" "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
+                echo -e "${GREEN}✅ HTTPS już skonfigurowany w Caddy${NC}"
+            else
+                echo -e "${YELLOW}⚠️  mikrus-expose niedostępny${NC}"
+            fi
         fi
     fi
 

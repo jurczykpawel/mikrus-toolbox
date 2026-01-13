@@ -140,18 +140,37 @@ if [ -z "$TURNSTILE_TOKEN" ] || [ -z "$ACCOUNT_ID" ]; then
     echo ""
     echo "🔍 Weryfikuję token..."
 
-    # Pobierz listę kont
-    ACCOUNTS_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts" \
-        -H "Authorization: Bearer $TURNSTILE_TOKEN" \
-        -H "Content-Type: application/json")
-
-    if echo "$ACCOUNTS_RESPONSE" | grep -q '"success":true'; then
-        ACCOUNT_ID=$(echo "$ACCOUNTS_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    # Najpierw spróbuj pobrać Account ID z głównego tokena CF (ma uprawnienia Zone)
+    if [ -z "$ACCOUNT_ID" ] && [ -f "$CONFIG_FILE" ]; then
+        MAIN_TOKEN=$(grep "^API_TOKEN=" "$CONFIG_FILE" | cut -d= -f2)
+        if [ -n "$MAIN_TOKEN" ]; then
+            ACCOUNT_ID=$(get_account_id "$MAIN_TOKEN")
+        fi
     fi
 
+    # Jeśli nadal brak - spróbuj z nowego tokena (wymaga Account:Read)
     if [ -z "$ACCOUNT_ID" ]; then
-        echo -e "${RED}❌ Nie mogę pobrać Account ID. Sprawdź uprawnienia tokena.${NC}"
-        exit 1
+        ACCOUNTS_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts" \
+            -H "Authorization: Bearer $TURNSTILE_TOKEN" \
+            -H "Content-Type: application/json")
+
+        if echo "$ACCOUNTS_RESPONSE" | grep -q '"success":true'; then
+            ACCOUNT_ID=$(echo "$ACCOUNTS_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        fi
+    fi
+
+    # Ostatnia deska ratunku - zapytaj użytkownika
+    if [ -z "$ACCOUNT_ID" ]; then
+        echo ""
+        echo -e "${YELLOW}Nie mogę automatycznie pobrać Account ID.${NC}"
+        echo "Znajdziesz go na: https://dash.cloudflare.com → dowolna domena → Overview → Account ID (prawa strona)"
+        echo ""
+        read -p "Wklej Account ID: " ACCOUNT_ID
+
+        if [ -z "$ACCOUNT_ID" ]; then
+            echo -e "${RED}❌ Account ID jest wymagane${NC}"
+            exit 1
+        fi
     fi
 
     # Sprawdź uprawnienia Turnstile
@@ -186,12 +205,52 @@ EXISTING_WIDGET=$(echo "$WIDGETS_RESPONSE" | grep -o '"sitekey":"[^"]*"[^}]*"dom
 
 if [ -n "$EXISTING_WIDGET" ]; then
     SITE_KEY=$(echo "$WIDGETS_RESPONSE" | grep -B5 "\"$DOMAIN\"" | grep -o '"sitekey":"[^"]*"' | head -1 | cut -d'"' -f4)
-    echo -e "${GREEN}✅ Widget już istnieje dla $DOMAIN${NC}"
+
+    # Sprawdź czy mamy zapisane klucze
+    KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
+    if [ -f "$KEYS_FILE" ]; then
+        echo -e "${GREEN}✅ Widget istnieje i mamy zapisane klucze${NC}"
+        source "$KEYS_FILE"
+        echo "   Site Key: $CLOUDFLARE_TURNSTILE_SITE_KEY"
+        echo ""
+        echo -e "${GREEN}🎉 Turnstile skonfigurowany!${NC}"
+        exit 0
+    fi
+
+    echo -e "${YELLOW}⚠️  Widget już istnieje dla $DOMAIN${NC}"
     echo "   Site Key: $SITE_KEY"
     echo ""
-    echo -e "${YELLOW}⚠️  Secret Key można zobaczyć tylko przy tworzeniu.${NC}"
-    echo "   Jeśli go nie masz, usuń widget w panelu i uruchom skrypt ponownie."
-    exit 0
+    echo "Secret Key jest widoczny tylko przy tworzeniu widgeta."
+    echo "Nie mamy go zapisanego lokalnie."
+    echo ""
+    echo "Opcje:"
+    echo "   [t] Usuń widget i utwórz nowy (wygeneruje nowe klucze)"
+    echo "   [n] Anuluj (możesz wpisać Secret Key ręcznie w .env.local)"
+    echo ""
+    echo -e "${YELLOW}⚠️  Jeśli usuniesz widget, stare klucze przestaną działać!${NC}"
+    echo "   Dotyczy to wszystkich instancji używających tego widgeta."
+    echo ""
+    read -p "Usunąć widget i utworzyć nowy? [t/N]: " DELETE_WIDGET
+
+    if [[ "$DELETE_WIDGET" =~ ^[TtYy]$ ]]; then
+        # Pobierz sitekey żeby usunąć widget
+        echo "🗑️  Usuwam istniejący widget..."
+        DELETE_RESPONSE=$(curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets/$SITE_KEY" \
+            -H "Authorization: Bearer $TURNSTILE_TOKEN" \
+            -H "Content-Type: application/json")
+
+        if echo "$DELETE_RESPONSE" | grep -q '"success":true'; then
+            echo -e "${GREEN}✅ Widget usunięty${NC}"
+        else
+            echo -e "${RED}❌ Nie udało się usunąć widgeta${NC}"
+            exit 1
+        fi
+    else
+        echo ""
+        echo "Możesz ręcznie usunąć widget w panelu Cloudflare:"
+        echo "   https://dash.cloudflare.com → Turnstile → $DOMAIN → Delete"
+        exit 0
+    fi
 fi
 
 # =============================================================================
@@ -224,25 +283,48 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
     echo "════════════════════════════════════════════════════════════════"
     echo ""
 
+    # Zapisz klucze do pliku (dla deploy.sh)
+    KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
+    echo "CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY" > "$KEYS_FILE"
+    echo "CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY" >> "$KEYS_FILE"
+    chmod 600 "$KEYS_FILE"
+
     # Opcjonalnie dodaj do .env.local na serwerze
     if [ -n "$SSH_ALIAS" ]; then
         echo "Dodać klucze do serwera $SSH_ALIAS? [t/N]: "
         read -r ADD_TO_SERVER
 
         if [[ "$ADD_TO_SERVER" =~ ^[TtYy]$ ]]; then
-            # Znajdź plik .env.local
-            ENV_FILE=$(ssh "$SSH_ALIAS" "find /root -name '.env.local' -path '*gateflow*' 2>/dev/null | head -1")
+            # Główny plik .env.local (source of truth)
+            ENV_FILE="/root/gateflow/admin-panel/.env.local"
+            STANDALONE_ENV="/root/gateflow/admin-panel/.next/standalone/admin-panel/.env.local"
 
-            if [ -n "$ENV_FILE" ]; then
+            # Sprawdź czy istnieje
+            if ssh "$SSH_ALIAS" "test -f $ENV_FILE"; then
+                # Dodaj do głównego .env.local
                 ssh "$SSH_ALIAS" "echo '' >> $ENV_FILE && echo '# Cloudflare Turnstile' >> $ENV_FILE && echo 'CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY' >> $ENV_FILE && echo 'CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY' >> $ENV_FILE"
 
                 # Skopiuj do standalone
-                STANDALONE_ENV=$(echo "$ENV_FILE" | sed 's|/admin-panel/|/admin-panel/.next/standalone/admin-panel/|')
                 ssh "$SSH_ALIAS" "cp $ENV_FILE $STANDALONE_ENV 2>/dev/null || true"
 
                 echo -e "${GREEN}✅ Klucze dodane do $ENV_FILE${NC}"
+
+                # Restart PM2 z przeładowaniem zmiennych środowiskowych
                 echo ""
-                echo "Zrestartuj aplikację: ssh $SSH_ALIAS 'pm2 restart gateflow-admin'"
+                echo "🔄 Restartuję GateFlow..."
+
+                # Katalog standalone
+                STANDALONE_DIR="/root/gateflow/admin-panel/.next/standalone/admin-panel"
+
+                # Musimy usunąć i uruchomić ponownie żeby przeładować env vars
+                RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete gateflow-admin 2>/dev/null; cd $STANDALONE_DIR && set -a && source .env.local && set +a && PORT=3333 HOSTNAME=0.0.0.0 pm2 start 'node server.js' --name gateflow-admin && pm2 save"
+
+                if ssh "$SSH_ALIAS" "$RESTART_CMD" 2>/dev/null; then
+                    echo -e "${GREEN}✅ Aplikacja zrestartowana${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  Nie udało się zrestartować. Zrób to ręcznie:${NC}"
+                    echo "   ssh $SSH_ALIAS '$RESTART_CMD'"
+                fi
             else
                 echo -e "${YELLOW}⚠️  Nie znaleziono .env.local na serwerze${NC}"
                 echo "   Dodaj klucze ręcznie."

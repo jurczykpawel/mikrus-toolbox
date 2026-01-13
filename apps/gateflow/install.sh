@@ -190,7 +190,24 @@ NEXT_PUBLIC_BASE_URL=$SITE_URL
 # Production
 NODE_ENV=production
 PORT=$PORT
+HOSTNAME=0.0.0.0
 ENVEOF
+fi
+
+# =============================================================================
+# 5.1. KONFIGURACJA TURNSTILE (jeśli przekazano klucze)
+# =============================================================================
+
+if [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
+    if ! grep -q "CLOUDFLARE_TURNSTILE_SITE_KEY" "$ENV_FILE" 2>/dev/null; then
+        cat >> "$ENV_FILE" <<ENVEOF
+
+# Cloudflare Turnstile (CAPTCHA)
+CLOUDFLARE_TURNSTILE_SITE_KEY=$CLOUDFLARE_TURNSTILE_SITE_KEY
+CLOUDFLARE_TURNSTILE_SECRET_KEY=$CLOUDFLARE_TURNSTILE_SECRET_KEY
+ENVEOF
+        echo "✅ Turnstile skonfigurowany"
+    fi
 fi
 
 chmod 600 "$ENV_FILE"
@@ -230,7 +247,16 @@ pm2 delete gateflow-admin 2>/dev/null || true
 # Uruchom - preferuj standalone server (szybszy start, mniej RAM)
 if [ -f "$STANDALONE_DIR/server.js" ]; then
     cd "$STANDALONE_DIR"
-    PORT=$PORT HOSTNAME=0.0.0.0 pm2 start "node server.js" --name gateflow-admin
+
+    # Załaduj zmienne z .env.local i uruchom PM2 w tej samej sesji
+    # (PM2 dziedziczy zmienne środowiskowe z bieżącej sesji)
+    set -a
+    source .env.local
+    set +a
+    export PORT="${PORT:-3333}"
+    export HOSTNAME="${HOSTNAME:-0.0.0.0}"
+
+    pm2 start "node server.js" --name gateflow-admin
 else
     # Fallback do bun run start
     cd "$INSTALL_DIR/admin-panel"
@@ -286,4 +312,9 @@ echo "      → https://dashboard.stripe.com/webhooks"
 echo "      → Endpoint: https://$DOMAIN/api/webhooks/stripe"
 echo "      → Events: checkout.session.completed, payment_intent.succeeded"
 echo "   3. Zaktualizuj STRIPE_WEBHOOK_SECRET w $ENV_FILE"
+if [ -z "$CLOUDFLARE_TURNSTILE_SITE_KEY" ]; then
+    echo "   4. Skonfiguruj Turnstile (CAPTCHA) - lokalnie:"
+    echo "      → ./local/setup-turnstile.sh $DOMAIN <ssh_alias>"
+    echo "      → Lub ręcznie: https://dash.cloudflare.com → Turnstile"
+fi
 echo ""
