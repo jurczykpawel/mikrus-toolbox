@@ -9,21 +9,40 @@ Sprzedawaj e-booki, kursy, szablony i licencje bez miesięcznych opłat i prowiz
 
 ## 🚀 Szybki Start
 
+### Opcja 1: Dedykowane skrypty konfiguracyjne (zalecane)
+
 ```bash
-# Interaktywny setup (zalecane)
+# 1. Konfiguracja Supabase (+ migracje)
+./local/setup-supabase-gateflow.sh hanna
+
+# 2. Konfiguracja Stripe
+./local/setup-stripe-gateflow.sh gf.twojadomena.pl
+
+# 3. Deploy z zapisanymi konfiguracjami
+source ~/.config/gateflow/supabase.env
+source ~/.config/gateflow/stripe.env
+STRIPE_PK="$STRIPE_PUBLISHABLE_KEY" STRIPE_SK="$STRIPE_SECRET_KEY" \
+./local/deploy.sh gateflow --ssh=hanna --domain=gf.twojadomena.pl
+```
+
+### Opcja 2: Interaktywny deploy
+
+```bash
+# Interaktywny setup (zadaje pytania)
 ./local/deploy.sh gateflow --ssh=mikrus
 
 # Z Cytrus (domena *.byst.re)
 ./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=shop.byst.re
 
-# Z Cloudflare (własna domena)
+# Z Cloudflare (własna domena + Turnstile CAPTCHA)
 ./local/deploy.sh gateflow --ssh=mikrus --domain-type=cloudflare --domain=shop.mojafirma.pl
 ```
 
 Skrypt przeprowadzi Cię przez:
 1. **Supabase** - automatyczny setup (otwiera przeglądarkę) lub ręczne wpisanie kluczy
 2. **Stripe** - skopiuj klucze z dashboardu
-3. **Build & Start** - automatycznie
+3. **Turnstile** - CAPTCHA dla Cloudflare (automatycznie dla --domain-type=cloudflare)
+4. **Build & Start** - automatycznie
 
 ---
 
@@ -83,9 +102,20 @@ Skrypt uruchomi 'bun run setup' który:
 
 ### Migracje bazy danych
 
-Po instalacji uruchom migracje SQL w Supabase:
-1. Otwórz Supabase Dashboard → SQL Editor
-2. Wykonaj pliki z `~/gateflow/supabase/migrations/` w kolejności chronologicznej
+Migracje wykonują się automatycznie przez Docker na serwerze:
+
+```bash
+# Przy pierwszej instalacji - razem z setup-supabase-gateflow.sh
+./local/setup-supabase-gateflow.sh hanna
+
+# Lub osobno
+DATABASE_URL="postgresql://..." ./local/setup-supabase-migrations.sh hanna
+```
+
+Skrypt:
+- Pobiera pliki migracji z GitHub
+- Sprawdza które są już wykonane (tabela `schema_migrations`)
+- Wykonuje brakujące przez Docker `postgres:15-alpine`
 
 ---
 
@@ -129,14 +159,23 @@ Po instalacji uruchom migracje SQL w Supabase:
 
 ## 📁 Lokalizacja
 
+**Na serwerze:**
 ```
 ~/gateflow/
 ├── admin-panel/
-│   ├── .env.local      # Konfiguracja (Supabase, Stripe, URLs)
-│   └── logs/           # Logi aplikacji
-├── ecosystem.config.js # Konfiguracja PM2
-└── supabase/
-    └── migrations/     # Migracje SQL
+│   ├── .env.local      # Konfiguracja (Supabase, Stripe, URLs, Turnstile)
+│   └── .next/standalone/  # Pre-built aplikacja
+└── .env.local.backup   # Backup konfiguracji (tworzony przy update)
+```
+
+**Na lokalnej maszynie:**
+```
+~/.config/gateflow/
+├── supabase.env    # Klucze Supabase (setup-supabase-gateflow.sh)
+└── stripe.env      # Klucze Stripe (setup-stripe-gateflow.sh)
+
+~/.config/cloudflare/
+└── turnstile_keys_DOMENA  # Klucze Turnstile (setup-turnstile.sh)
 ```
 
 ---
@@ -152,10 +191,39 @@ pm2 logs gateflow-admin
 
 # Restart
 pm2 restart gateflow-admin
-
-# Aktualizacja
-cd ~/gateflow && git pull && cd admin-panel && bun install && bun run build && pm2 restart gateflow-admin
 ```
+
+### Aktualizacja
+
+```bash
+# Z lokalnej maszyny (przez SSH)
+ssh hanna 'bash -s' < apps/gateflow/update.sh
+
+# Lub bezpośrednio na serwerze
+./apps/gateflow/update.sh
+```
+
+Skrypt update.sh:
+1. Pobiera najnowszą wersję z GitHub Releases
+2. Zachowuje konfigurację (.env.local)
+3. Pyta o DATABASE_URL i wykonuje migracje (opcjonalnie)
+4. Restartuje aplikację
+
+---
+
+## 🔒 Turnstile (CAPTCHA)
+
+Dla domen Cloudflare automatycznie konfigurowany jest Turnstile (CAPTCHA bez CAPTCHA):
+
+```bash
+# Automatycznie przy deploy z --domain-type=cloudflare
+./local/deploy.sh gateflow --ssh=hanna --domain-type=cloudflare --domain=gf.example.com
+
+# Lub osobno (jeśli już masz GateFlow)
+./local/setup-turnstile.sh gf.example.com hanna
+```
+
+Klucze są automatycznie dodawane do `.env.local` i aplikacja restartowana.
 
 ---
 
