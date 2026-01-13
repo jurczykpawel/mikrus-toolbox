@@ -34,11 +34,12 @@ else
 fi
 
 # Ustaw ścieżki i nazwy na podstawie instancji
+# Instalujemy do /opt/stacks żeby backup działał automatycznie
 if [ -n "$INSTANCE_NAME" ]; then
-    INSTALL_DIR="/root/gateflow-${INSTANCE_NAME}"
+    INSTALL_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
     PM2_NAME="gateflow-${INSTANCE_NAME}"
 else
-    INSTALL_DIR="/root/gateflow"
+    INSTALL_DIR="/opt/stacks/gateflow"
     PM2_NAME="$PM2_NAME"
 fi
 

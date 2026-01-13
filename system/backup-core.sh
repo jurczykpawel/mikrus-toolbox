@@ -18,6 +18,18 @@ SOURCE_DIRS=(
 )
 LOG_FILE="/var/log/mikrus-backup.log"
 
+# Wykluczenia - pliki które można pobrać/zbudować ponownie
+EXCLUDES=(
+    "node_modules/**"       # npm/bun dependencies
+    ".next/**"              # Next.js build output
+    ".nuxt/**"              # Nuxt.js build output
+    "build/**"              # Generic build directories
+    "dist/**"               # Generic dist directories
+    ".git/**"               # Git history
+    "*.log"                 # Log files
+    ".cache/**"             # Cache directories
+)
+
 # Function to log messages
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -39,15 +51,22 @@ fi
 # 2. Prepare Backup Staging (Optional - direct sync is better for bandwidth)
 # We will sync directly from filesystem to remote to save local disk space (Mikrus has small disk)
 
-# 3. Perform Sync
+# 3. Build exclude flags
+EXCLUDE_FLAGS=""
+for PATTERN in "${EXCLUDES[@]}"; do
+    EXCLUDE_FLAGS="$EXCLUDE_FLAGS --exclude=$PATTERN"
+done
+
+# 4. Perform Sync
 for DIR in "${SOURCE_DIRS[@]}"; do
     if [ -d "$DIR" ]; then
         DEST="$REMOTE_NAME:$BACKUP_NAME$(basename "$DIR")"
         log "📤 Syncing $DIR to $DEST..."
-        
+
         # --update: skip files that are newer on destination
         # --transfers 1: limited concurrency to save RAM/CPU
-        rclone sync "$DIR" "$DEST" --create-empty-src-dirs --update --transfers 1 --verbose >> "$LOG_FILE" 2>&1
+        # shellcheck disable=SC2086
+        rclone sync "$DIR" "$DEST" --create-empty-src-dirs --update --transfers 1 --verbose $EXCLUDE_FLAGS >> "$LOG_FILE" 2>&1
     else
         log "⚠️ Directory $DIR does not exist. Skipping."
     fi

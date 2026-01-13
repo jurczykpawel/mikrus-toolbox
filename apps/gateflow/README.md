@@ -352,9 +352,9 @@ Flaga `--yes` oznacza:
 
 **Wynik na serwerze:**
 ```
-/root/gateflow-shop/      # PM2: gateflow-shop,    port: 3333
-/root/gateflow-courses/   # PM2: gateflow-courses, port: 3334
-/root/gateflow-digital/   # PM2: gateflow-digital, port: 3335
+/opt/stacks/gateflow-shop/      # PM2: gateflow-shop,    port: 3333
+/opt/stacks/gateflow-courses/   # PM2: gateflow-courses, port: 3334
+/opt/stacks/gateflow-digital/   # PM2: gateflow-digital, port: 3335
 ```
 
 Każda instancja:
@@ -399,9 +399,9 @@ Każda instancja:
 
 **Wynik na serwerze:**
 ```
-/root/gateflow-shop/   # Supabase: abc123prod,  port: 3333
-/root/gateflow-test/   # Supabase: xyz789test,  port: 3334
-/root/gateflow-demo/   # Supabase: demo456client, port: 3335
+/opt/stacks/gateflow-shop/   # Supabase: abc123prod,  port: 3333
+/opt/stacks/gateflow-test/   # Supabase: xyz789test,  port: 3334
+/opt/stacks/gateflow-demo/   # Supabase: demo456client, port: 3335
 ```
 
 **Kluczowy parametr:** `--supabase-project=REF` pozwala wybrać inny projekt Supabase dla każdej instancji.
@@ -409,7 +409,7 @@ Każda instancja:
 **Weryfikacja konfiguracji:**
 ```bash
 # Sprawdź który projekt używa która instancja
-ssh hanna "grep SUPABASE_URL /root/gateflow-*/admin-panel/.env.local"
+ssh hanna "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ```
 
 ---
@@ -470,7 +470,7 @@ ssh hanna "pm2 restart all"
 ssh hanna "pm2 logs gateflow-shop --lines 50"
 
 # Sprawdź konfigurację Supabase wszystkich instancji
-ssh hanna "grep SUPABASE_URL /root/gateflow*/admin-panel/.env.local"
+ssh hanna "grep SUPABASE_URL /opt/stacks/gateflow*/admin-panel/.env.local"
 ```
 
 > **Uwaga:** Jeśli `pm2: command not found`, dodaj PATH ręcznie:
@@ -556,7 +556,7 @@ A: Nie. To opcjonalna ochrona CAPTCHA. Możesz skonfigurować później lub pomi
 **Q: Czy mogę mieć kilka instancji GateFlow na jednym serwerze?**
 
 A: Tak! Każda instancja musi mieć inną domenę. System automatycznie:
-- Tworzy oddzielny katalog (`/root/gateflow-{subdomena}/`)
+- Tworzy oddzielny katalog (`/opt/stacks/gateflow-{subdomena}/`)
 - Przydziela kolejny port (3333, 3334, 3335...)
 - Tworzy oddzielny proces PM2
 

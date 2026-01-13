@@ -20,14 +20,35 @@ GITHUB_REPO="pavvel11/gateflow"
 # =============================================================================
 # AUTO-DETEKCJA KATALOGU INSTALACJI
 # =============================================================================
-# Jeśli podano INSTANCE, użyj go. Jeśli nie, znajdź pierwszy dostępny.
+# Nowa lokalizacja: /opt/stacks/gateflow* (backup-friendly)
+# Stara lokalizacja: /root/gateflow* (dla kompatybilności)
+
+find_gateflow_dir() {
+    local NAME="$1"
+    # Sprawdź nową lokalizację
+    if [ -d "/opt/stacks/gateflow-${NAME}" ]; then
+        echo "/opt/stacks/gateflow-${NAME}"
+    elif [ -d "/root/gateflow-${NAME}" ]; then
+        echo "/root/gateflow-${NAME}"
+    elif [ -d "/opt/stacks/gateflow" ]; then
+        echo "/opt/stacks/gateflow"
+    elif [ -d "/root/gateflow" ]; then
+        echo "/root/gateflow"
+    fi
+}
+
 if [ -n "$INSTANCE" ]; then
-    INSTALL_DIR="/root/gateflow-${INSTANCE}"
+    INSTALL_DIR=$(find_gateflow_dir "$INSTANCE")
     PM2_NAME="gateflow-${INSTANCE}"
-elif ls -d /root/gateflow-* &>/dev/null; then
-    # Znajdź pierwszy katalog instancji
+elif ls -d /opt/stacks/gateflow-* &>/dev/null 2>&1; then
+    INSTALL_DIR=$(ls -d /opt/stacks/gateflow-* 2>/dev/null | head -1)
+    PM2_NAME="gateflow-${INSTALL_DIR##*-}"
+elif ls -d /root/gateflow-* &>/dev/null 2>&1; then
     INSTALL_DIR=$(ls -d /root/gateflow-* 2>/dev/null | head -1)
     PM2_NAME="gateflow-${INSTALL_DIR##*-}"
+elif [ -d "/opt/stacks/gateflow" ]; then
+    INSTALL_DIR="/opt/stacks/gateflow"
+    PM2_NAME="$PM2_NAME"
 else
     INSTALL_DIR="/root/gateflow"
     PM2_NAME="$PM2_NAME"
