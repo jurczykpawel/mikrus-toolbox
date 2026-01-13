@@ -773,6 +773,61 @@ else
 fi
 
 # =============================================================================
+# MIGRACJE SUPABASE (dla GateFlow)
+# =============================================================================
+
+if [ "$APP_NAME" = "gateflow" ]; then
+    echo ""
+    echo "🗄️  Migracje bazy danych..."
+
+    # Sprawdź czy mamy DATABASE_URL
+    if [ -z "$DATABASE_URL" ]; then
+        # Sprawdź w zapisanej konfiguracji
+        SUPABASE_CONFIG="$HOME/.config/gateflow/supabase.env"
+        if [ -f "$SUPABASE_CONFIG" ]; then
+            source "$SUPABASE_CONFIG"
+        fi
+    fi
+
+    if [ -z "$DATABASE_URL" ]; then
+        if [ "$YES_MODE" = true ]; then
+            echo -e "${YELLOW}⚠️  Brak DATABASE_URL - pominięto migracje${NC}"
+            echo "   Uruchom później: DATABASE_URL=... ./local/setup-supabase-migrations.sh $SSH_ALIAS"
+        else
+            echo ""
+            echo "Potrzebuję Database URL do uruchomienia migracji."
+            echo ""
+            echo "Gdzie go znaleźć:"
+            echo "   1. Otwórz: https://supabase.com/dashboard"
+            echo "   2. Wybierz projekt → Settings → Database"
+            echo "   3. Sekcja 'Connection string' → URI"
+            echo ""
+            read -p "Wklej Database URL (postgresql://...) lub Enter aby pominąć: " DATABASE_URL
+        fi
+    fi
+
+    if [ -n "$DATABASE_URL" ]; then
+        # Zapisz do konfiguracji na przyszłość
+        SUPABASE_CONFIG="$HOME/.config/gateflow/supabase.env"
+        if [ -f "$SUPABASE_CONFIG" ] && ! grep -q "DATABASE_URL" "$SUPABASE_CONFIG"; then
+            echo "DATABASE_URL='$DATABASE_URL'" >> "$SUPABASE_CONFIG"
+            chmod 600 "$SUPABASE_CONFIG"
+        fi
+
+        # Uruchom migracje
+        if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
+            DATABASE_URL="$DATABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" "$SSH_ALIAS"
+        else
+            echo -e "${YELLOW}⚠️  Brak skryptu migracji${NC}"
+        fi
+    else
+        echo ""
+        echo "⏭️  Pominięto migracje. Uruchom później:"
+        echo "   DATABASE_URL=... ./local/setup-supabase-migrations.sh $SSH_ALIAS"
+    fi
+fi
+
+# =============================================================================
 # FAZA 3: KONFIGURACJA DOMENY (po uruchomieniu usługi!)
 # =============================================================================
 
