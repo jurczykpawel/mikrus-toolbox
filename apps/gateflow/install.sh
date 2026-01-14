@@ -246,21 +246,29 @@ fi
 # 4. KONFIGURACJA STRIPE
 # =============================================================================
 
-if grep -q "STRIPE_PUBLISHABLE_KEY=pk_" "$ENV_FILE" 2>/dev/null; then
+if grep -q "STRIPE_PUBLISHABLE_KEY" "$ENV_FILE" 2>/dev/null; then
     echo "✅ Konfiguracja Stripe już istnieje"
 elif [ -n "$STRIPE_PK" ] && [ -n "$STRIPE_SK" ]; then
     # Użyj kluczy przekazanych przez deploy.sh (zebrane lokalnie w FAZIE 1.5)
     echo "✅ Konfiguruję Stripe..."
     cat >> "$ENV_FILE" <<ENVEOF
 
-# Stripe
+# Stripe Configuration
 STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
 STRIPE_SECRET_KEY=$STRIPE_SK
 STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+STRIPE_COLLECT_TERMS_OF_SERVICE=false
 ENVEOF
 else
-    # Brak kluczy - użytkownik skonfiguruje później w panelu
+    # Brak kluczy - dodaj placeholdery (skonfiguruje w UI)
     echo "ℹ️  Stripe zostanie skonfigurowany w panelu po instalacji"
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Stripe Configuration (skonfiguruj przez UI wizard w panelu)
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_COLLECT_TERMS_OF_SERVICE=false
+ENVEOF
 fi
 
 # =============================================================================
@@ -277,6 +285,7 @@ if [ "$DOMAIN" = "-" ]; then
 NODE_ENV=production
 PORT=$PORT
 HOSTNAME=::
+NEXT_TELEMETRY_DISABLED=1
 ENVEOF
 elif grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
     echo "✅ Konfiguracja URL już istnieje"
@@ -315,6 +324,7 @@ NODE_ENV=production
 PORT=$PORT
 # :: słucha na IPv4 i IPv6 (wymagane dla Cytrus który łączy się przez IPv6)
 HOSTNAME=::
+NEXT_TELEMETRY_DISABLED=1
 
 # HSTS (wyłącz dla reverse proxy z SSL termination)
 DISABLE_HSTS=$DISABLE_HSTS
