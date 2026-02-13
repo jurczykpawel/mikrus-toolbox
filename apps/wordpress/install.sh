@@ -156,6 +156,11 @@ error_log = /dev/stderr
 zlib.output_compression = On
 zlib.output_compression_level = 4
 
+; Realpath cache - WordPress ma głęboką strukturę plików
+; Domyślne 16k to za mało → 4096k eliminuje tysiące stat() per request
+realpath_cache_size = 4096k
+realpath_cache_ttl = 600
+
 ; Session security
 session.cookie_secure = On
 session.cookie_httponly = On
@@ -208,6 +213,7 @@ http {
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 30;
+    keepalive_requests 1000;
     types_hash_max_size 2048;
     client_max_body_size 64M;
     server_tokens off;
@@ -229,11 +235,23 @@ http {
         image/svg+xml
         font/woff2;
 
+    # Open file cache - zmniejsza disk I/O o ~80% dla static files
+    open_file_cache max=10000 inactive=5m;
+    open_file_cache_valid 2m;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors on;
+
     # FastCGI cache (24h dla stron, skip admin/login/API)
     fastcgi_cache_path /var/cache/nginx levels=1:2
         keys_zone=wordpress:10m max_size=256m inactive=24h;
     fastcgi_cache_key "$scheme$request_method$host$request_uri";
     fastcgi_cache_use_stale error timeout updating http_500 http_503;
+    fastcgi_cache_lock on;
+    fastcgi_cache_lock_timeout 5s;
+    fastcgi_cache_background_update on;
+
+    # Rate limiting - ochrona przed brute force (bez obciążania PHP)
+    limit_req_zone $binary_remote_addr zone=wp_login:10m rate=1r/s;
 
     server {
         listen 80;
@@ -245,6 +263,7 @@ http {
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
         # Static files - cache 1 year, serwowane bez PHP
         location ~* \.(jpg|jpeg|png|gif|ico|webp|avif|css|js|svg|woff|woff2|ttf|eot)$ {
@@ -253,11 +272,35 @@ http {
             access_log off;
         }
 
+        # wp-login.php - rate limiting (1 req/s, burst 3)
+        location = /wp-login.php {
+            limit_req zone=wp_login burst=3 nodelay;
+            limit_req_status 429;
+
+            fastcgi_pass wordpress:9000;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+            fastcgi_param HTTPS $http_x_forwarded_proto if_not_empty;
+        }
+
+        # Blokuj xmlrpc.php - wektor DDoS i brute force, mało kto używa
+        location = /xmlrpc.php {
+            deny all;
+            access_log off;
+            log_not_found off;
+        }
+
+        # Blokuj user enumeration (?author=N)
+        if ($args ~* "author=\d+") {
+            return 403;
+        }
+
         # Skip cache rules
         set $skip_cache 0;
 
         # Admin, login, API, cron - zawsze świeże
-        if ($request_uri ~* "/wp-admin/|/wp-login\.php|/wp-json/|/xmlrpc\.php|wp-.*\.php") {
+        if ($request_uri ~* "/wp-admin/|/wp-login\.php|/wp-json/|wp-.*\.php") {
             set $skip_cache 1;
         }
 
@@ -282,6 +325,11 @@ http {
 
             # Przekaż info o HTTPS (dla reverse proxy fix)
             fastcgi_param HTTPS $http_x_forwarded_proto if_not_empty;
+
+            # FastCGI buffers - optymalne dla WordPress responses
+            fastcgi_buffers 16 16k;
+            fastcgi_buffer_size 32k;
+            fastcgi_keep_conn on;
 
             # FastCGI cache
             fastcgi_cache wordpress;
@@ -322,6 +370,21 @@ services:
       - ./config/php-performance.ini:/usr/local/etc/php/conf.d/performance.ini:ro
       - ./config/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
       - wp-html:/var/www/html
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -339,6 +402,19 @@ services:
       - ./wp-content:/var/www/html/wp-content:ro
     depends_on:
       - wordpress
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO/dev/null", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -365,6 +441,21 @@ services:
       - ./config/php-performance.ini:/usr/local/etc/php/conf.d/performance.ini:ro
       - ./config/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
       - wp-html:/var/www/html
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -382,6 +473,19 @@ services:
       - ./wp-content:/var/www/html/wp-content:ro
     depends_on:
       - wordpress
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO/dev/null", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -455,11 +559,26 @@ fi
 # 5. WordPress memory limit
 if ! docker exec "$CONTAINER" grep -q "WP_MEMORY_LIMIT" "$WP_CONFIG"; then
     docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('WP_MEMORY_LIMIT', '256M');" "$WP_CONFIG"
-    echo "   ✅ WP Memory Limit: 256M"
+define('WP_MEMORY_LIMIT', '256M');\
+define('WP_MAX_MEMORY_LIMIT', '512M');" "$WP_CONFIG"
+    echo "   ✅ WP Memory Limit: 256M (admin: 512M)"
 fi
 
-# 6. Dodaj systemowy cron automatycznie
+# 6. Zwiększ interwał autosave (mniej zapisów do DB)
+if ! docker exec "$CONTAINER" grep -q "AUTOSAVE_INTERVAL" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('AUTOSAVE_INTERVAL', 300);" "$WP_CONFIG"
+    echo "   ✅ Autosave: co 5 min (zamiast 60s)"
+fi
+
+# 7. Zablokuj edycję plików z panelu WP (security)
+if ! docker exec "$CONTAINER" grep -q "DISALLOW_FILE_EDIT" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('DISALLOW_FILE_EDIT', true);" "$WP_CONFIG"
+    echo "   ✅ Edycja plików z panelu WP zablokowana"
+fi
+
+# 9. Dodaj systemowy cron automatycznie
 CRON_CMD="*/5 * * * * docker exec \$(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) php /var/www/html/wp-cron.php > /dev/null 2>&1"
 if ! crontab -l 2>/dev/null | grep -q "wp-cron.php"; then
     (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
@@ -468,7 +587,7 @@ else
     echo "   ℹ️  Systemowy cron już istnieje"
 fi
 
-# 7. Flush FastCGI cache
+# 10. Flush FastCGI cache
 if [ -d "/opt/stacks/wordpress/nginx-cache" ]; then
     rm -rf /opt/stacks/wordpress/nginx-cache/*
     echo "   ✅ FastCGI cache wyczyszczony"
