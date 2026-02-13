@@ -82,6 +82,16 @@ get_db_recommendation() {
    ➜ Darmowa baza OK dla małych/średnich botów.
    ➜ Płatna: jeśli planujesz >10k konwersacji/mies."
             ;;
+        postiz)
+            echo "Postiz przechowuje konfigurację kont social media i zaplanowane posty.
+   ➜ Darmowa baza Mikrusa powinna wystarczyć dla typowego użycia.
+   ➜ Płatna: jeśli planujesz bardzo dużo postów/kont"
+            ;;
+        wordpress)
+            echo "WordPress przechowuje treści, użytkowników i ustawienia.
+   ➜ Darmowy MySQL Mikrusa wystarczy dla małych/średnich stron.
+   ➜ Płatny: jeśli masz dużo wtyczek/ruchu"
+            ;;
     esac
 }
 
@@ -92,7 +102,7 @@ get_default_db_type() {
         n8n|umami|listmonk)
             echo "custom"  # Wymaga pgcrypto - shared nie działa
             ;;
-        nocodb|cap|typebot)
+        nocodb|cap|typebot|postiz|wordpress)
             echo "shared"  # Lekkie aplikacje - shared wystarczy
             ;;
         *)
