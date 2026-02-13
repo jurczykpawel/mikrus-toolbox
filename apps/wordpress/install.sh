@@ -5,7 +5,7 @@
 # https://wordpress.org
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=500  # wordpress:php8.3-fpm-alpine (~200MB) + nginx:alpine (~40MB)
+# IMAGE_SIZE_MB=550  # wordpress:fpm-alpine+redis (~250MB) + nginx:alpine (~40MB) + redis:alpine (~30MB)
 #
 # Stack wydajnościowy:
 #   wordpress:php8.3-fpm-alpine (PHP-FPM, nie Apache)
@@ -97,6 +97,26 @@ echo ""
 
 sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache}
 cd "$STACK_DIR"
+
+# =============================================================================
+# 3a. DOCKERFILE (wordpress + redis extension + WP-CLI)
+# =============================================================================
+
+echo "⚙️  Generuję Dockerfile (PHP redis extension + WP-CLI)..."
+
+cat <<'DOCKERFILE_EOF' | sudo tee "$STACK_DIR/Dockerfile" > /dev/null
+FROM wordpress:php8.3-fpm-alpine
+
+# PHP redis extension (dla Redis Object Cache)
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+# WP-CLI (zarządzanie WordPress z konsoli)
+RUN curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /usr/local/bin/wp \
+    && chmod +x /usr/local/bin/wp
+DOCKERFILE_EOF
 
 # SQLite: pobierz plugin
 if [ "$WP_DB_MODE" = "sqlite" ]; then
@@ -362,7 +382,7 @@ if [ "$WP_DB_MODE" = "sqlite" ]; then
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   wordpress:
-    image: wordpress:php8.3-fpm-alpine
+    build: .
     restart: always
     volumes:
       - ./wp-content:/var/www/html/wp-content
@@ -372,6 +392,8 @@ services:
       - wp-html:/var/www/html
     tmpfs:
       - /tmp:size=128M,mode=1777
+    depends_on:
+      - redis
     security_opt:
       - no-new-privileges:true
     logging:
@@ -389,6 +411,29 @@ services:
       resources:
         limits:
           memory: $WP_MEMORY
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
+    volumes:
+      - ./redis-data:/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 96M
 
   nginx:
     image: nginx:alpine
@@ -428,7 +473,7 @@ else
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   wordpress:
-    image: wordpress:php8.3-fpm-alpine
+    build: .
     restart: always
     environment:
       - WORDPRESS_DB_HOST=${DB_HOST}:${DB_PORT}
@@ -443,6 +488,8 @@ services:
       - wp-html:/var/www/html
     tmpfs:
       - /tmp:size=128M,mode=1777
+    depends_on:
+      - redis
     security_opt:
       - no-new-privileges:true
     logging:
@@ -460,6 +507,29 @@ services:
       resources:
         limits:
           memory: $WP_MEMORY
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
+    volumes:
+      - ./redis-data:/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 96M
 
   nginx:
     image: nginx:alpine
@@ -578,7 +648,35 @@ define('DISALLOW_FILE_EDIT', true);" "$WP_CONFIG"
     echo "   ✅ Edycja plików z panelu WP zablokowana"
 fi
 
-# 9. Dodaj systemowy cron automatycznie
+# 8. Redis Object Cache - wp-config.php defines
+if ! docker exec "$CONTAINER" grep -q "WP_REDIS_HOST" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('WP_REDIS_HOST', 'redis');\
+define('WP_REDIS_PORT', 6379);\
+define('WP_CACHE', true);" "$WP_CONFIG"
+    echo "   ✅ Redis config (WP_REDIS_HOST=redis, WP_CACHE=true)"
+fi
+
+# 9. Redis Object Cache - instalacja pluginu przez WP-CLI
+if docker exec "$CONTAINER" test -f /usr/local/bin/wp; then
+    if ! docker exec -u www-data "$CONTAINER" wp plugin is-installed redis-cache --path=/var/www/html 2>/dev/null; then
+        echo "   📥 Instaluję plugin Redis Object Cache..."
+        docker exec -u www-data "$CONTAINER" wp plugin install redis-cache --activate --path=/var/www/html 2>/dev/null
+        echo "   ✅ Plugin Redis Object Cache zainstalowany i aktywowany"
+    else
+        docker exec -u www-data "$CONTAINER" wp plugin activate redis-cache --path=/var/www/html 2>/dev/null || true
+        echo "   ℹ️  Plugin Redis Object Cache już zainstalowany"
+    fi
+
+    # Włącz object cache drop-in (kopiuje object-cache.php do wp-content/)
+    docker exec -u www-data "$CONTAINER" wp redis enable --path=/var/www/html --force 2>/dev/null \
+        && echo "   ✅ Redis Object Cache włączony (drop-in aktywny)" \
+        || echo "   ⚠️  Nie udało się włączyć Redis drop-in (sprawdź: wp redis status)"
+else
+    echo "   ⚠️  WP-CLI niedostępny - zainstaluj plugin Redis Object Cache ręcznie"
+fi
+
+# 11. Dodaj systemowy cron automatycznie
 CRON_CMD="*/5 * * * * docker exec \$(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) php /var/www/html/wp-cron.php > /dev/null 2>&1"
 if ! crontab -l 2>/dev/null | grep -q "wp-cron.php"; then
     (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
@@ -587,7 +685,7 @@ else
     echo "   ℹ️  Systemowy cron już istnieje"
 fi
 
-# 10. Flush FastCGI cache
+# 12. Flush FastCGI cache
 if [ -d "/opt/stacks/wordpress/nginx-cache" ]; then
     rm -rf /opt/stacks/wordpress/nginx-cache/*
     echo "   ✅ FastCGI cache wyczyszczony"
@@ -617,10 +715,13 @@ sudo chmod +x "$STACK_DIR/flush-cache.sh"
 sudo chown -R 82:82 "$STACK_DIR/wp-content"
 
 echo ""
-echo "🚀 Uruchamiam WordPress (FPM + Nginx)..."
+echo "🔨 Buduję obraz WordPress (redis extension + WP-CLI)..."
+sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
+
+echo "🚀 Uruchamiam WordPress (FPM + Nginx + Redis)..."
 sudo docker compose up -d
 
-# Health check - FPM + Nginx potrzebują ~30-60s
+# Health check - build + start potrzebują więcej czasu
 echo "⏳ Czekam na uruchomienie..."
 source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
@@ -667,22 +768,17 @@ echo ""
 echo "⚡ Co jest zoptymalizowane automatycznie:"
 echo "   • PHP-FPM alpine (lżejszy niż Apache)"
 echo "   • OPcache + JIT (2-3x szybszy PHP)"
+echo "   • Redis Object Cache (-70% zapytań do DB)"
 echo "   • Nginx FastCGI cache (cached strony = 0ms PHP)"
 echo "   • Gzip compression (-60-80% bandwidth)"
-echo "   • Security headers (X-Frame, X-Content-Type, Referrer-Policy)"
+echo "   • Security headers + rate limiting + xmlrpc block"
 echo "   • FPM ondemand ($FPM_MAX_CHILDREN workerów, tuning na ${TOTAL_RAM}MB RAM)"
 echo ""
 
-# Redis info
-if [ -d "/opt/stacks/redis" ] && sudo docker compose -f /opt/stacks/redis/docker-compose.yaml ps -q redis 2>/dev/null | head -1 | grep -q .; then
-    echo "💡 Masz Redis! Zainstaluj wtyczkę 'Redis Object Cache' → TTFB -70%"
-    echo ""
-fi
-
 echo "📋 Przydatne komendy:"
 echo "   ./flush-cache.sh          - wyczyść FastCGI cache"
-echo "   ./wp-init.sh              - zastosuj optymalizacje wp-config.php"
-echo "   docker compose logs -f    - logi (FPM + Nginx)"
+echo "   ./wp-init.sh              - optymalizacje wp-config.php + Redis plugin"
+echo "   docker compose logs -f    - logi (FPM + Nginx + Redis)"
 echo ""
 
 echo "   Tryb bazy: $WP_DB_MODE"
@@ -693,6 +789,5 @@ else
 fi
 
 echo ""
-echo "💡 Dodatkowe optymalizacje (ręczne):"
-echo "   • Redis Object Cache - wtyczka WP → -70% zapytań do DB"
+echo "💡 Dodatkowa optymalizacja (ręczna):"
 echo "   • Converter for Media - wtyczka WP → automatyczny WebP"

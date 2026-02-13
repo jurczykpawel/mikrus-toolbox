@@ -8,7 +8,8 @@ Stack wydajnościowy, który pobija managed hostingi za $10-30/mies:
 
 ```
 Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
-                        └── PHP-FPM alpine (OPcache + JIT, ondemand workers)
+                        └── PHP-FPM alpine (OPcache + JIT, redis ext, WP-CLI)
+                        └── Redis (object cache, bundled)
                              └── MySQL (zewnętrzny) lub SQLite
 ```
 
@@ -16,6 +17,7 @@ Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
 |---|---|
 | PHP-FPM alpine (nie Apache) | -35MB RAM, mniejszy obraz |
 | OPcache + JIT | 2-3x szybszy PHP |
+| Redis Object Cache (bundled) | -70% zapytań do DB (auto-instalacja przez WP-CLI) |
 | Nginx FastCGI cache | Cached strony serwowane bez PHP i DB |
 | FastCGI cache lock | Ochrona przed thundering herd (1 req do PHP) |
 | Gzip compression | -60-80% transferu |
@@ -53,14 +55,14 @@ WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=hanna --domain-type=cytrus -
 
 ## Wymagania
 
-- **RAM:** ~200-300MB (WP + Nginx), działa na Mikrus 1.0 (512MB)
-- **Dysk:** ~500MB (oba obrazy Docker razem)
+- **RAM:** ~80-100MB idle (WP + Nginx + Redis), działa na Mikrus 1.0 (512MB)
+- **Dysk:** ~550MB (obrazy Docker: WP+redis ext, Nginx, Redis)
 - **MySQL:** Shared Mikrus (darmowy) lub własny. SQLite nie wymaga.
 
 ## Po instalacji
 
 1. Otwórz stronę → kreator instalacji WordPress
-2. Zastosuj optymalizacje wp-config.php:
+2. Zastosuj optymalizacje wp-config.php + zainstaluj Redis Object Cache:
    ```bash
    ssh hanna 'cd /opt/stacks/wordpress && ./wp-init.sh'
    ```
@@ -72,14 +74,11 @@ WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=hanna --domain-type=cytrus -
 - Ustawia WP_MEMORY_LIMIT na 256M (admin: 512M)
 - Zmienia autosave z 60s na 5 min
 - Blokuje edycję plików z panelu WP (security)
+- Konfiguruje Redis connection w wp-config.php
+- Instaluje i aktywuje plugin Redis Object Cache (WP-CLI)
+- Włącza Redis Object Cache drop-in
 
-## Dodatkowe optymalizacje (ręczne)
-
-### Redis Object Cache (-70% zapytań do DB)
-
-Jeśli masz Redis (`./local/deploy.sh redis`):
-1. Zainstaluj wtyczkę "Redis Object Cache" w panelu WP
-2. Aktywuj → automatycznie wykryje Redis na localhost:6379
+## Dodatkowa optymalizacja (ręczna)
 
 ### Converter for Media (WebP)
 
@@ -123,6 +122,7 @@ Header `X-FastCGI-Cache` w odpowiedzi HTTP pokazuje status: `HIT`, `MISS`, `BYPA
 Dane w `/opt/stacks/wordpress/`:
 - `wp-content/` - wtyczki, motywy, uploady, baza SQLite
 - `config/` - konfiguracja PHP/Nginx/FPM
+- `redis-data/` - cache Redis
 - `docker-compose.yaml`
 
 ## RAM Profiling
@@ -134,3 +134,5 @@ Skrypt automatycznie wykrywa RAM i dostosowuje PHP-FPM:
 | 512MB | 4 | 192M | 32M |
 | 1GB | 8 | 256M | 48M |
 | 2GB+ | 15 | 256M | 64M |
+
+Redis: 64MB maxmemory (allkeys-lru) + 96MB Docker limit dla wszystkich profili.
