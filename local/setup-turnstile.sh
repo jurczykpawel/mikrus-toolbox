@@ -222,57 +222,177 @@ WIDGETS_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts
     -H "Authorization: Bearer $TURNSTILE_TOKEN" \
     -H "Content-Type: application/json")
 
-# Szukaj widgetu dla tej domeny
-EXISTING_WIDGET=$(echo "$WIDGETS_RESPONSE" | grep -o '"sitekey":"[^"]*"[^}]*"domains":\[[^]]*"'"$DOMAIN"'"' | head -1)
+# Parsuj widgety przez Python aby prawidłowo obsłużyć JSON
+MATCHING_WIDGETS=$(echo "$WIDGETS_RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if 'result' in data:
+        for widget in data['result']:
+            domains = widget.get('domains', [])
+            if '$DOMAIN' in domains:
+                print(json.dumps({
+                    'sitekey': widget.get('sitekey'),
+                    'name': widget.get('name'),
+                    'domains': domains,
+                    'mode': widget.get('mode')
+                }))
+except Exception as e:
+    pass
+" 2>/dev/null)
 
-if [ -n "$EXISTING_WIDGET" ]; then
-    SITE_KEY=$(echo "$WIDGETS_RESPONSE" | grep -B5 "\"$DOMAIN\"" | grep -o '"sitekey":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$MATCHING_WIDGETS" ]; then
+    # Zlicz ile widgetów pasuje
+    WIDGET_COUNT=$(echo "$MATCHING_WIDGETS" | wc -l | xargs)
 
-    # Sprawdź czy mamy zapisane klucze
-    KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
-    if [ -f "$KEYS_FILE" ]; then
-        echo -e "${GREEN}✅ Widget istnieje i mamy zapisane klucze${NC}"
-        source "$KEYS_FILE"
-        echo "   Site Key: $CLOUDFLARE_TURNSTILE_SITE_KEY"
-        echo ""
-        echo -e "${GREEN}🎉 Turnstile skonfigurowany!${NC}"
-        exit 0
-    fi
-
-    echo -e "${YELLOW}⚠️  Widget już istnieje dla $DOMAIN${NC}"
-    echo "   Site Key: $SITE_KEY"
+    echo -e "${YELLOW}⚠️  Znaleziono $WIDGET_COUNT widget(y) dla domeny $DOMAIN${NC}"
     echo ""
-    echo "Secret Key jest widoczny tylko przy tworzeniu widgeta."
-    echo "Nie mamy go zapisanego lokalnie."
-    echo ""
-    echo "Opcje:"
-    echo "   [t] Usuń widget i utwórz nowy (wygeneruje nowe klucze)"
-    echo "   [n] Anuluj (możesz wpisać Secret Key ręcznie w .env.local)"
-    echo ""
-    echo -e "${YELLOW}⚠️  Jeśli usuniesz widget, stare klucze przestaną działać!${NC}"
-    echo "   Dotyczy to wszystkich instancji używających tego widgeta."
-    echo ""
-    read -p "Usunąć widget i utworzyć nowy? [t/N]: " DELETE_WIDGET
 
-    if [[ "$DELETE_WIDGET" =~ ^[TtYy]$ ]]; then
-        # Pobierz sitekey żeby usunąć widget
-        echo "🗑️  Usuwam istniejący widget..."
-        DELETE_RESPONSE=$(curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets/$SITE_KEY" \
-            -H "Authorization: Bearer $TURNSTILE_TOKEN" \
-            -H "Content-Type: application/json")
+    # Wyświetl wszystkie znalezione widgety
+    WIDGET_NUM=1
+    declare -a SITEKEYS
 
-        if echo "$DELETE_RESPONSE" | grep -q '"success":true'; then
-            echo -e "${GREEN}✅ Widget usunięty${NC}"
-        else
-            echo -e "${RED}❌ Nie udało się usunąć widgeta${NC}"
-            exit 1
+    while IFS= read -r widget_json; do
+        WIDGET_NAME=$(echo "$widget_json" | python3 -c "import sys, json; print(json.load(sys.stdin).get('name', 'N/A'))")
+        WIDGET_SITEKEY=$(echo "$widget_json" | python3 -c "import sys, json; print(json.load(sys.stdin).get('sitekey', ''))")
+        WIDGET_MODE=$(echo "$widget_json" | python3 -c "import sys, json; print(json.load(sys.stdin).get('mode', 'N/A'))")
+
+        SITEKEYS[$WIDGET_NUM]="$WIDGET_SITEKEY"
+
+        # Sprawdź czy mamy zapisane klucze dla tego widgeta
+        KEYS_FILE="$CONFIG_DIR/turnstile_keys_${WIDGET_SITEKEY}"
+        HAS_KEYS=""
+        if [ -f "$KEYS_FILE" ]; then
+            HAS_KEYS=" ${GREEN}✓ Klucze zapisane${NC}"
         fi
-    else
+
+        echo -e "  ${WIDGET_NUM}) Nazwa: $WIDGET_NAME"
+        echo "     Site Key: $WIDGET_SITEKEY"
+        echo "     Mode: $WIDGET_MODE$HAS_KEYS"
         echo ""
-        echo "Możesz ręcznie usunąć widget w panelu Cloudflare:"
-        echo "   https://dash.cloudflare.com → Turnstile → $DOMAIN → Delete"
-        exit 0
-    fi
+
+        WIDGET_NUM=$((WIDGET_NUM + 1))
+    done <<< "$MATCHING_WIDGETS"
+
+    echo "Opcje:"
+    echo "  [1-$WIDGET_COUNT] Użyj istniejącego widgeta"
+    echo "  [n] Utwórz nowy widget"
+    echo "  [d] Usuń wybrany widget i utwórz nowy"
+    echo "  [q] Anuluj"
+    echo ""
+    read -p "Wybierz opcję: " WIDGET_CHOICE
+
+    case "$WIDGET_CHOICE" in
+        [1-9]*)
+            # Sprawdź czy numer jest w zakresie
+            if [ "$WIDGET_CHOICE" -ge 1 ] && [ "$WIDGET_CHOICE" -le "$WIDGET_COUNT" ]; then
+                SITE_KEY="${SITEKEYS[$WIDGET_CHOICE]}"
+
+                # Sprawdź czy mamy zapisane klucze
+                KEYS_FILE="$CONFIG_DIR/turnstile_keys_${SITE_KEY}"
+                if [ -f "$KEYS_FILE" ]; then
+                    echo -e "${GREEN}✅ Używam widgeta ze Site Key: $SITE_KEY${NC}"
+                    source "$KEYS_FILE"
+                    echo "   Site Key: $CLOUDFLARE_TURNSTILE_SITE_KEY"
+                    echo "   Secret Key: ${CLOUDFLARE_TURNSTILE_SECRET_KEY:0:20}..."
+                    echo ""
+                    echo -e "${GREEN}🎉 Turnstile skonfigurowany!${NC}"
+
+                    # Zapisz również pod nazwą domeny dla kompatybilności
+                    DOMAIN_KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
+                    cp "$KEYS_FILE" "$DOMAIN_KEYS_FILE"
+
+                    exit 0
+                else
+                    echo ""
+                    echo -e "${YELLOW}⚠️  Nie mam zapisanego Secret Key dla tego widgeta.${NC}"
+                    echo ""
+                    echo "Secret Key jest widoczny tylko przy tworzeniu widgeta."
+                    echo "Możesz:"
+                    echo "  1. Wpisać Secret Key ręcznie (jeśli go masz)"
+                    echo "  2. Usunąć widget i utworzyć nowy"
+                    echo ""
+                    read -p "Wpisać Secret Key ręcznie? [t/N]: " MANUAL_KEY
+
+                    if [[ "$MANUAL_KEY" =~ ^[TtYy]$ ]]; then
+                        read -p "Wklej Secret Key: " SECRET_KEY
+                        if [ -n "$SECRET_KEY" ]; then
+                            # Zapisz klucze
+                            echo "CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY" > "$KEYS_FILE"
+                            echo "CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY" >> "$KEYS_FILE"
+                            chmod 600 "$KEYS_FILE"
+
+                            # Zapisz również pod nazwą domeny
+                            DOMAIN_KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
+                            cp "$KEYS_FILE" "$DOMAIN_KEYS_FILE"
+
+                            echo -e "${GREEN}✅ Klucze zapisane!${NC}"
+                            echo -e "${GREEN}🎉 Turnstile skonfigurowany!${NC}"
+                            exit 0
+                        fi
+                    fi
+
+                    echo ""
+                    echo "Uruchom ponownie skrypt i wybierz opcję [d] aby usunąć widget i utworzyć nowy."
+                    exit 0
+                fi
+            else
+                echo -e "${RED}❌ Nieprawidłowy wybór${NC}"
+                exit 1
+            fi
+            ;;
+        [dD])
+            echo ""
+            echo "Który widget usunąć?"
+            read -p "Numer [1-$WIDGET_COUNT]: " DELETE_NUM
+
+            if [ "$DELETE_NUM" -ge 1 ] && [ "$DELETE_NUM" -le "$WIDGET_COUNT" ]; then
+                SITE_KEY="${SITEKEYS[$DELETE_NUM]}"
+
+                echo ""
+                echo -e "${YELLOW}⚠️  UWAGA: Usunięcie widgeta spowoduje że wszystkie aplikacje używające tego Site Key przestaną działać!${NC}"
+                echo ""
+                read -p "Czy na pewno usunąć widget $SITE_KEY? [t/N]: " CONFIRM_DELETE
+
+                if [[ "$CONFIRM_DELETE" =~ ^[TtYy]$ ]]; then
+                    echo "🗑️  Usuwam widget..."
+                    DELETE_RESPONSE=$(curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets/$SITE_KEY" \
+                        -H "Authorization: Bearer $TURNSTILE_TOKEN" \
+                        -H "Content-Type: application/json")
+
+                    if echo "$DELETE_RESPONSE" | grep -q '"success":true'; then
+                        echo -e "${GREEN}✅ Widget usunięty${NC}"
+
+                        # Usuń zapisane klucze
+                        rm -f "$CONFIG_DIR/turnstile_keys_${SITE_KEY}" "$CONFIG_DIR/turnstile_keys_$DOMAIN"
+
+                        # Kontynuuj do tworzenia nowego widgeta (nie exit)
+                    else
+                        echo -e "${RED}❌ Nie udało się usunąć widgeta${NC}"
+                        exit 1
+                    fi
+                else
+                    exit 0
+                fi
+            else
+                echo -e "${RED}❌ Nieprawidłowy wybór${NC}"
+                exit 1
+            fi
+            ;;
+        [nN])
+            echo ""
+            echo "Tworzę nowy widget..."
+            # Kontynuuj do sekcji tworzenia widgeta
+            ;;
+        [qQ])
+            echo "Anulowano."
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}❌ Nieprawidłowy wybór${NC}"
+            exit 1
+            ;;
+    esac
 fi
 
 # =============================================================================
@@ -306,10 +426,19 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
     echo ""
 
     # Zapisz klucze do pliku (dla deploy.sh)
-    KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
-    echo "CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY" > "$KEYS_FILE"
-    echo "CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY" >> "$KEYS_FILE"
-    chmod 600 "$KEYS_FILE"
+    # Zapisz zarówno pod nazwą domeny jak i Site Key dla łatwiejszego odnalezienia
+    KEYS_FILE_DOMAIN="$CONFIG_DIR/turnstile_keys_$DOMAIN"
+    KEYS_FILE_SITEKEY="$CONFIG_DIR/turnstile_keys_${SITE_KEY}"
+
+    echo "CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY" > "$KEYS_FILE_DOMAIN"
+    echo "CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY" >> "$KEYS_FILE_DOMAIN"
+    chmod 600 "$KEYS_FILE_DOMAIN"
+
+    # Kopia dla Site Key (aby móc odnaleźć przy ponownym użyciu)
+    cp "$KEYS_FILE_DOMAIN" "$KEYS_FILE_SITEKEY"
+    chmod 600 "$KEYS_FILE_SITEKEY"
+
+    echo "💾 Klucze zapisane w: $KEYS_FILE_DOMAIN"
 
     # Dodaj do .env.local na serwerze (jeśli podano SSH_ALIAS)
     if [ -n "$SSH_ALIAS" ]; then
