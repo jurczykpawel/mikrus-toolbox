@@ -78,7 +78,7 @@ services:
     image: wordpress:latest
     restart: always
     ports:
-      - "$PORT:80"
+      - "127.0.0.1:$PORT:80"
     volumes:
       - ./wp-content:/var/www/html/wp-content
     deploy:
@@ -122,7 +122,7 @@ services:
     image: wordpress:latest
     restart: always
     ports:
-      - "$PORT:80"
+      - "127.0.0.1:$PORT:80"
     environment:
       - WORDPRESS_DB_HOST=${DB_HOST}:${DB_PORT}
       - WORDPRESS_DB_USER=${DB_USER}
@@ -185,9 +185,15 @@ fi
 
 echo ""
 echo "✅ Konfiguracja WordPress zaktualizowana!"
-echo ""
-echo "Dodaj systemowy cron (zalecane):"
-echo "   (crontab -l 2>/dev/null; echo '*/5 * * * * docker exec \$(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) php /var/www/html/wp-cron.php > /dev/null 2>&1') | crontab -"
+
+# Dodaj systemowy cron automatycznie
+CRON_CMD="*/5 * * * * docker exec \$(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) php /var/www/html/wp-cron.php > /dev/null 2>&1"
+if ! crontab -l 2>/dev/null | grep -q "wp-cron.php"; then
+    (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
+    echo "✅ Systemowy cron dodany (co 5 min)"
+else
+    echo "ℹ️  Systemowy cron już istnieje"
+fi
 INITEOF
 sudo chmod +x "$STACK_DIR/wp-init.sh"
 
@@ -244,3 +250,8 @@ if [ "$WP_DB_MODE" = "sqlite" ]; then
 else
     echo "   Baza: MySQL ($DB_HOST:$DB_PORT/$DB_NAME)"
 fi
+echo ""
+echo "💡 Optymalizacja wydajności:"
+echo "   • Redis Object Cache - zainstaluj wtyczkę 'Redis Object Cache' (TTFB -50-80%)"
+echo "   • Converter for Media - automatyczna konwersja obrazów do WebP"
+echo "   • wordpress:fpm-alpine - lżejszy obraz (wymaga FastCGI w reverse proxy)"
