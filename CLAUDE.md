@@ -183,8 +183,11 @@ Gdy tworzysz `apps/<newapp>/install.sh`:
 ```bash
 ./local/setup-turnstile.sh <domena> [ssh_alias]
 
-# Automatycznie tworzy widget Turnstile przez API
-# Jeśli token nie ma uprawnień - prowadzi przez utworzenie nowego
+# Automatycznie zarządza widgetami Turnstile przez API:
+# - Sprawdza czy widget dla domeny już istnieje
+# - Jeśli istnieje - pyta czy użyć istniejącego czy utworzyć nowy
+# - Jeśli nie istnieje - tworzy nowy widget
+# - Zapisuje klucze lokalnie dla przyszłego użycia
 # Przykłady:
 ./local/setup-turnstile.sh gf.automagicznie.pl hanna
 ./local/setup-turnstile.sh myapp.example.com

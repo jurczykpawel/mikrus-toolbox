@@ -11,3 +11,7 @@
 # Temp files
 *.log
 *.tmp
+
+# Project-specific
+local/gateflow-metrics*.csv
+benchmark-*/
