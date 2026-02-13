@@ -66,6 +66,7 @@ Tryby:
   --yes, -y            Pomiń wszystkie potwierdzenia
   --dry-run            Pokaż co się wykona bez wykonania
   --update             Aktualizuj istniejącą aplikację (zamiast instalować)
+  --restart            Restart bez aktualizacji (np. po zmianie .env) - używany z --update
   --build-file=PATH    Użyj lokalnego pliku tar.gz (dla --update, gdy repo jest prywatne)
   --help, -h           Pokaż tę pomoc
 
@@ -93,6 +94,9 @@ Przykłady:
 
   # Aktualizacja z lokalnego pliku (gdy repo jest prywatne)
   ./local/deploy.sh gateflow --ssh=hanna --update --build-file=~/Downloads/gateflow-build.tar.gz
+
+  # Restart bez aktualizacji (np. po zmianie .env)
+  ./local/deploy.sh gateflow --ssh=hanna --update --restart
 
 EOF
 }
@@ -242,23 +246,33 @@ if [ "$UPDATE_MODE" = true ]; then
         ENV_VARS="$ENV_VARS INSTANCE='$UPDATE_INSTANCE'"
     fi
 
+    # Przygotuj argumenty dla update.sh
+    UPDATE_SCRIPT_ARGS=""
+    if [ "$RESTART_ONLY" = true ]; then
+        UPDATE_SCRIPT_ARGS="--restart"
+    fi
+
     # Uruchom skrypt i posprzątaj
     CLEANUP_CMD="rm -f '$REMOTE_SCRIPT'"
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_BUILD_FILE'"
     fi
 
-    if ssh -t "$SSH_ALIAS" "export $ENV_VARS; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
+    if ssh -t "$SSH_ALIAS" "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
-        echo -e "${GREEN}✅ Pliki zaktualizowane${NC}"
+        if [ "$RESTART_ONLY" = true ]; then
+            echo -e "${GREEN}✅ GateFlow zrestartowany!${NC}"
+        else
+            echo -e "${GREEN}✅ Pliki zaktualizowane${NC}"
+        fi
     else
         echo ""
         echo -e "${RED}❌ Aktualizacja nie powiodła się${NC}"
         exit 1
     fi
 
-    # Dla GateFlow - uruchom migracje przez API (lokalnie)
-    if [ "$APP_NAME" = "gateflow" ]; then
+    # Dla GateFlow - uruchom migracje przez API (lokalnie) - tylko w trybie update, nie restart
+    if [ "$APP_NAME" = "gateflow" ] && [ "$RESTART_ONLY" = false ]; then
         echo ""
         echo "🗄️  Aktualizuję bazę danych..."
 
@@ -268,7 +282,11 @@ if [ "$UPDATE_MODE" = true ]; then
     fi
 
     echo ""
-    echo -e "${GREEN}✅ Aktualizacja zakończona!${NC}"
+    if [ "$RESTART_ONLY" = true ]; then
+        echo -e "${GREEN}✅ Restart zakończony!${NC}"
+    else
+        echo -e "${GREEN}✅ Aktualizacja zakończona!${NC}"
+    fi
 
     exit 0
 fi

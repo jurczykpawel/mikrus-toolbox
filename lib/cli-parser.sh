@@ -93,6 +93,8 @@ export INSTANCE="${INSTANCE:-}"
 export APP_PORT="${APP_PORT:-}"
 export YES_MODE="${YES_MODE:-false}"
 export DRY_RUN="${DRY_RUN:-false}"
+export UPDATE_MODE="${UPDATE_MODE:-false}"
+export RESTART_ONLY="${RESTART_ONLY:-false}"
 export POSITIONAL_ARGS=()
 
 # Ścieżka do config file
@@ -164,6 +166,7 @@ parse_args() {
             --yes|-y) YES_MODE=true ;;
             --dry-run) DRY_RUN=true ;;
             --update) UPDATE_MODE=true ;;
+            --restart) RESTART_ONLY=true ;;
             --build-file=*) BUILD_FILE="${1#*=}" ;;
             --build-file) BUILD_FILE="$2"; shift ;;
             --help|-h) show_help; exit 0 ;;
@@ -186,7 +189,7 @@ parse_args() {
     # Eksportuj zmienne
     export SSH_ALIAS DB_SOURCE DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS
     export DOMAIN DOMAIN_TYPE SUPABASE_PROJECT INSTANCE APP_PORT
-    export YES_MODE DRY_RUN UPDATE_MODE BUILD_FILE
+    export YES_MODE DRY_RUN UPDATE_MODE RESTART_ONLY BUILD_FILE
 }
 
 # =============================================================================
@@ -225,6 +228,8 @@ Opcje GateFlow:
 Tryby:
   --yes, -y            Pomiń wszystkie potwierdzenia (wymaga pełnych parametrów)
   --dry-run            Pokaż co się wykona bez wykonania
+  --update             Aktualizuj istniejącą aplikację
+  --restart            Restart bez aktualizacji (np. po zmianie .env) - używany z --update
   --help, -h           Pokaż tę pomoc
 
 Przykłady:
