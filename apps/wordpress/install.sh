@@ -1,11 +1,18 @@
 #!/bin/bash
 
-# Mikrus Toolbox - WordPress
+# Mikrus Toolbox - WordPress (Performance Edition)
 # The world's most popular CMS. Blog, shop, portfolio - anything.
 # https://wordpress.org
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=700  # wordpress:latest
+# IMAGE_SIZE_MB=500  # wordpress:php8.3-fpm-alpine (~200MB) + nginx:alpine (~40MB)
+#
+# Stack wydajnościowy:
+#   wordpress:php8.3-fpm-alpine (PHP-FPM, nie Apache)
+#   + nginx:alpine (static files, gzip, FastCGI cache)
+#   + OPcache + JIT (2-3x szybszy PHP)
+#   + FPM ondemand (dynamiczny tuning na podstawie RAM)
+#   + Security headers + hardening
 #
 # Dwa tryby bazy danych:
 #   1. MySQL (domyślny) - zewnętrzny MySQL z Mikrusa lub własny
@@ -24,10 +31,33 @@ APP_NAME="wordpress"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8080}
 
-echo "--- 📝 WordPress Setup ---"
+echo "--- 📝 WordPress Setup (Performance Edition) ---"
 echo ""
 
 WP_DB_MODE="${WP_DB_MODE:-mysql}"
+
+# =============================================================================
+# 1. DETEKCJA RAM → TUNING PHP-FPM
+# =============================================================================
+
+TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "1024")
+
+if [ "$TOTAL_RAM" -ge 2000 ]; then
+    FPM_MAX_CHILDREN=15
+    WP_MEMORY="256M"
+    NGINX_MEMORY="64M"
+    echo "✅ RAM: ${TOTAL_RAM}MB → profil: duży (FPM: 15 workerów)"
+elif [ "$TOTAL_RAM" -ge 1000 ]; then
+    FPM_MAX_CHILDREN=8
+    WP_MEMORY="256M"
+    NGINX_MEMORY="48M"
+    echo "✅ RAM: ${TOTAL_RAM}MB → profil: średni (FPM: 8 workerów)"
+else
+    FPM_MAX_CHILDREN=4
+    WP_MEMORY="192M"
+    NGINX_MEMORY="32M"
+    echo "✅ RAM: ${TOTAL_RAM}MB → profil: lekki (FPM: 4 workery)"
+fi
 
 # Domain
 if [ -n "$DOMAIN" ]; then
@@ -36,65 +66,14 @@ else
     echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
 fi
 
-sudo mkdir -p "$STACK_DIR"
-cd "$STACK_DIR"
-
 # =============================================================================
-# TRYB SQLite (lekki, bez bazy MySQL)
+# 2. WALIDACJA BAZY DANYCH
 # =============================================================================
 
 if [ "$WP_DB_MODE" = "sqlite" ]; then
     echo "✅ Tryb: WordPress + SQLite (lekki, bez MySQL)"
-    echo ""
-
-    # Przygotuj katalogi
-    sudo mkdir -p "$STACK_DIR/wp-content/database"
-
-    # Pobierz oficjalny plugin SQLite
-    echo "📥 Pobieram plugin WordPress SQLite Database Integration..."
-    SQLITE_PLUGIN_URL="https://github.com/WordPress/sqlite-database-integration/archive/refs/heads/main.zip"
-    TEMP_ZIP=$(mktemp)
-    if curl -fsSL "$SQLITE_PLUGIN_URL" -o "$TEMP_ZIP"; then
-        sudo mkdir -p "$STACK_DIR/wp-content/mu-plugins"
-        sudo unzip -qo "$TEMP_ZIP" -d "$STACK_DIR/wp-content/mu-plugins/"
-        sudo mv "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration-main" \
-                "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration"
-        # Kopiuj db.php drop-in
-        sudo cp "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration/db.copy" \
-                "$STACK_DIR/wp-content/db.php"
-        echo "✅ Plugin SQLite zainstalowany"
-    else
-        echo "❌ Nie udało się pobrać pluginu SQLite"
-        echo "   Pobierz ręcznie: https://github.com/WordPress/sqlite-database-integration"
-        rm -f "$TEMP_ZIP"
-        exit 1
-    fi
-    rm -f "$TEMP_ZIP"
-
-    # docker-compose bez MySQL
-    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
-services:
-  wordpress:
-    image: wordpress:latest
-    restart: always
-    ports:
-      - "127.0.0.1:$PORT:80"
-    volumes:
-      - ./wp-content:/var/www/html/wp-content
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-EOF
-
-# =============================================================================
-# TRYB MySQL (domyślny - zewnętrzny MySQL z deploy.sh)
-# =============================================================================
-
 else
     echo "✅ Tryb: WordPress + MySQL"
-
-    # Sprawdź dane bazy
     if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
         echo "❌ Brak danych MySQL!"
         echo "   Wymagane: DB_HOST, DB_USER, DB_PASS, DB_NAME"
@@ -106,23 +85,275 @@ else
         echo "   WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=hanna"
         exit 1
     fi
-
     DB_PORT=${DB_PORT:-3306}
     DB_NAME=${DB_NAME:-wordpress}
-
     echo "   Host: $DB_HOST:$DB_PORT | User: $DB_USER | DB: $DB_NAME"
-    echo ""
+fi
+echo ""
 
-    # Przygotuj katalogi
-    sudo mkdir -p "$STACK_DIR/wp-content"
+# =============================================================================
+# 3. PRZYGOTOWANIE KATALOGÓW
+# =============================================================================
 
+sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache}
+cd "$STACK_DIR"
+
+# SQLite: pobierz plugin
+if [ "$WP_DB_MODE" = "sqlite" ]; then
+    sudo mkdir -p "$STACK_DIR/wp-content/database"
+    echo "📥 Pobieram plugin WordPress SQLite Database Integration..."
+    SQLITE_PLUGIN_URL="https://github.com/WordPress/sqlite-database-integration/archive/refs/heads/main.zip"
+    TEMP_ZIP=$(mktemp)
+    if curl -fsSL "$SQLITE_PLUGIN_URL" -o "$TEMP_ZIP"; then
+        sudo mkdir -p "$STACK_DIR/wp-content/mu-plugins"
+        sudo unzip -qo "$TEMP_ZIP" -d "$STACK_DIR/wp-content/mu-plugins/"
+        sudo mv "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration-main" \
+                "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration" 2>/dev/null || true
+        sudo cp "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration/db.copy" \
+                "$STACK_DIR/wp-content/db.php"
+        echo "✅ Plugin SQLite zainstalowany"
+    else
+        echo "❌ Nie udało się pobrać pluginu SQLite"
+        rm -f "$TEMP_ZIP"
+        exit 1
+    fi
+    rm -f "$TEMP_ZIP"
+fi
+
+# =============================================================================
+# 4. KONFIGURACJA PHP - OPcache + JIT + Security
+# =============================================================================
+
+echo "⚙️  Generuję konfigurację PHP (OPcache + JIT + security)..."
+
+cat <<'OPCACHE_EOF' | sudo tee "$STACK_DIR/config/php-opcache.ini" > /dev/null
+[opcache]
+opcache.enable=1
+opcache.memory_consumption=128
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=10000
+opcache.revalidate_freq=0
+opcache.validate_timestamps=0
+opcache.fast_shutdown=1
+opcache.max_wasted_percentage=10
+opcache.jit=1255
+opcache.jit_buffer_size=64M
+OPCACHE_EOF
+
+cat <<'PHPINI_EOF' | sudo tee "$STACK_DIR/config/php-performance.ini" > /dev/null
+[PHP]
+memory_limit = 256M
+max_execution_time = 30
+max_input_time = 60
+post_max_size = 64M
+upload_max_filesize = 64M
+expose_php = Off
+display_errors = Off
+log_errors = On
+error_log = /dev/stderr
+
+; Compression (na poziomie PHP, Nginx też kompresuje)
+zlib.output_compression = On
+zlib.output_compression_level = 4
+
+; Session security
+session.cookie_secure = On
+session.cookie_httponly = On
+session.cookie_samesite = Lax
+PHPINI_EOF
+
+# =============================================================================
+# 5. KONFIGURACJA PHP-FPM (ondemand, tuning na RAM)
+# =============================================================================
+
+echo "⚙️  Generuję konfigurację PHP-FPM (ondemand, max_children=$FPM_MAX_CHILDREN)..."
+
+cat <<FPM_EOF | sudo tee "$STACK_DIR/config/www.conf" > /dev/null
+[www]
+user = www-data
+group = www-data
+listen = 9000
+
+pm = ondemand
+pm.max_children = $FPM_MAX_CHILDREN
+pm.process_idle_timeout = 10s
+pm.max_requests = 500
+
+request_slowlog_timeout = 10s
+slowlog = /proc/self/fd/2
+FPM_EOF
+
+# =============================================================================
+# 6. KONFIGURACJA NGINX (static files, gzip, FastCGI cache, security headers)
+# =============================================================================
+
+echo "⚙️  Generuję konfigurację Nginx (gzip, FastCGI cache, security headers)..."
+
+cat <<'NGINX_EOF' | sudo tee "$STACK_DIR/config/nginx.conf" > /dev/null
+worker_processes auto;
+worker_rlimit_nofile 8192;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Performance
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 30;
+    types_hash_max_size 2048;
+    client_max_body_size 64M;
+    server_tokens off;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/xml
+        image/svg+xml
+        font/woff2;
+
+    # FastCGI cache (24h dla stron, skip admin/login/API)
+    fastcgi_cache_path /var/cache/nginx levels=1:2
+        keys_zone=wordpress:10m max_size=256m inactive=24h;
+    fastcgi_cache_key "$scheme$request_method$host$request_uri";
+    fastcgi_cache_use_stale error timeout updating http_500 http_503;
+
+    server {
+        listen 80;
+        server_name _;
+        root /var/www/html;
+        index index.php;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+        # Static files - cache 1 year, serwowane bez PHP
+        location ~* \.(jpg|jpeg|png|gif|ico|webp|avif|css|js|svg|woff|woff2|ttf|eot)$ {
+            expires 365d;
+            add_header Cache-Control "public, immutable";
+            access_log off;
+        }
+
+        # Skip cache rules
+        set $skip_cache 0;
+
+        # Admin, login, API, cron - zawsze świeże
+        if ($request_uri ~* "/wp-admin/|/wp-login\.php|/wp-json/|/xmlrpc\.php|wp-.*\.php") {
+            set $skip_cache 1;
+        }
+
+        # Zalogowani użytkownicy - zawsze świeże
+        if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_logged_in") {
+            set $skip_cache 1;
+        }
+
+        # POST requests - nie cachuj
+        if ($request_method = POST) {
+            set $skip_cache 1;
+        }
+
+        # PHP via FastCGI + cache
+        location ~ \.php$ {
+            try_files $uri =404;
+            fastcgi_split_path_info ^(.+\.php)(/.+)$;
+            fastcgi_pass wordpress:9000;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+
+            # Przekaż info o HTTPS (dla reverse proxy fix)
+            fastcgi_param HTTPS $http_x_forwarded_proto if_not_empty;
+
+            # FastCGI cache
+            fastcgi_cache wordpress;
+            fastcgi_cache_valid 200 24h;
+            fastcgi_cache_bypass $skip_cache;
+            fastcgi_no_cache $skip_cache;
+            add_header X-FastCGI-Cache $upstream_cache_status;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.php?$args;
+        }
+
+        # Blokuj dostęp do wrażliwych plików
+        location ~ /\.(ht|git|env) { deny all; }
+        location = /wp-config.php { deny all; }
+        location ~* /(?:uploads|files)/.*\.php$ { deny all; }
+    }
+}
+NGINX_EOF
+
+# =============================================================================
+# 7. DOCKER-COMPOSE (FPM + Nginx)
+# =============================================================================
+
+echo "⚙️  Generuję docker-compose.yaml..."
+
+if [ "$WP_DB_MODE" = "sqlite" ]; then
+    # SQLite: bez zmiennych DB
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   wordpress:
-    image: wordpress:latest
+    image: wordpress:php8.3-fpm-alpine
+    restart: always
+    volumes:
+      - ./wp-content:/var/www/html/wp-content
+      - ./config/php-opcache.ini:/usr/local/etc/php/conf.d/opcache.ini:ro
+      - ./config/php-performance.ini:/usr/local/etc/php/conf.d/performance.ini:ro
+      - ./config/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - wp-html:/var/www/html
+    deploy:
+      resources:
+        limits:
+          memory: $WP_MEMORY
+
+  nginx:
+    image: nginx:alpine
     restart: always
     ports:
       - "127.0.0.1:$PORT:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-cache:/var/cache/nginx
+      - wp-html:/var/www/html:ro
+      - ./wp-content:/var/www/html/wp-content:ro
+    depends_on:
+      - wordpress
+    deploy:
+      resources:
+        limits:
+          memory: $NGINX_MEMORY
+
+volumes:
+  wp-html:
+EOF
+else
+    # MySQL: ze zmiennymi DB
+    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
+services:
+  wordpress:
+    image: wordpress:php8.3-fpm-alpine
+    restart: always
     environment:
       - WORDPRESS_DB_HOST=${DB_HOST}:${DB_PORT}
       - WORDPRESS_DB_USER=${DB_USER}
@@ -130,22 +361,48 @@ services:
       - WORDPRESS_DB_NAME=${DB_NAME}
     volumes:
       - ./wp-content:/var/www/html/wp-content
+      - ./config/php-opcache.ini:/usr/local/etc/php/conf.d/opcache.ini:ro
+      - ./config/php-performance.ini:/usr/local/etc/php/conf.d/performance.ini:ro
+      - ./config/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - wp-html:/var/www/html
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: $WP_MEMORY
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "127.0.0.1:$PORT:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-cache:/var/cache/nginx
+      - wp-html:/var/www/html:ro
+      - ./wp-content:/var/www/html/wp-content:ro
+    depends_on:
+      - wordpress
+    deploy:
+      resources:
+        limits:
+          memory: $NGINX_MEMORY
+
+volumes:
+  wp-html:
 EOF
 fi
 
 # =============================================================================
-# HTTPS PROXY FIX + WP-CRON OPTIMIZATION
+# 8. WP-INIT.SH (post-install: HTTPS fix, wp-cron, performance defines)
 # =============================================================================
 
-# Utwórz skrypt inicjalizacyjny który doda fix po pierwszym starcie WP
 cat <<'INITEOF' | sudo tee "$STACK_DIR/wp-init.sh" > /dev/null
 #!/bin/bash
-# Dodaje fix HTTPS za reverse proxy + wyłącza domyślny wp-cron
-# Uruchom po pierwszym starcie WordPressa (gdy wp-config.php już istnieje)
+# WordPress Performance Init
+# Uruchom po pierwszym starcie (gdy wp-config.php istnieje)
+# Dodaje: HTTPS fix, WP-Cron, limity rewizji, memory limit
+
+cd "$(dirname "$0")"
 
 WP_CONFIG="/var/www/html/wp-config.php"
 CONTAINER=$(docker compose ps -q wordpress 2>/dev/null | head -1)
@@ -155,7 +412,6 @@ if [ -z "$CONTAINER" ]; then
     exit 1
 fi
 
-# Sprawdź czy wp-config.php istnieje
 if ! docker exec "$CONTAINER" test -f "$WP_CONFIG"; then
     echo "⏳ WordPress jeszcze się nie zainicjalizował (brak wp-config.php)"
     echo "   Otwórz stronę w przeglądarce aby ukończyć instalację,"
@@ -163,95 +419,161 @@ if ! docker exec "$CONTAINER" test -f "$WP_CONFIG"; then
     exit 0
 fi
 
-# Dodaj fix HTTPS za reverse proxy
+echo "🔧 Optymalizuję wp-config.php..."
+
+# 1. Fix HTTPS za reverse proxy (Cytrus/Caddy/Cloudflare)
 if ! docker exec "$CONTAINER" grep -q "HTTP_X_FORWARDED_PROTO" "$WP_CONFIG"; then
-    echo "🔧 Dodaję fix HTTPS za reverse proxy..."
     docker exec "$CONTAINER" sed -i '/^<?php/a\
 // HTTPS behind reverse proxy (Cytrus/Caddy/Cloudflare)\
 if (isset($_SERVER["HTTP_X_FORWARDED_PROTO"]) \&\& $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https") {\
     $_SERVER["HTTPS"] = "on";\
 }' "$WP_CONFIG"
-    echo "✅ Fix HTTPS dodany"
+    echo "   ✅ Fix HTTPS za reverse proxy"
 fi
 
-# Wyłącz domyślny wp-cron (będzie przez systemowy cron)
+# 2. Wyłącz domyślny wp-cron
 if ! docker exec "$CONTAINER" grep -q "DISABLE_WP_CRON" "$WP_CONFIG"; then
-    echo "🔧 Wyłączam domyślny WP-Cron..."
     docker exec "$CONTAINER" sed -i "/^<?php/a\\
-// Wyłącz domyślny wp-cron (uruchamiany przez systemowy cron co 5 min)\\
 define('DISABLE_WP_CRON', true);" "$WP_CONFIG"
-    echo "✅ WP-Cron wyłączony"
+    echo "   ✅ WP-Cron wyłączony (systemowy cron co 5 min)"
 fi
 
-echo ""
-echo "✅ Konfiguracja WordPress zaktualizowana!"
+# 3. Limit rewizji (mniejsza baza)
+if ! docker exec "$CONTAINER" grep -q "WP_POST_REVISIONS" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('WP_POST_REVISIONS', 5);" "$WP_CONFIG"
+    echo "   ✅ Limit rewizji: 5 (mniejsza baza)"
+fi
 
-# Dodaj systemowy cron automatycznie
+# 4. Auto-czyszczenie kosza
+if ! docker exec "$CONTAINER" grep -q "EMPTY_TRASH_DAYS" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('EMPTY_TRASH_DAYS', 14);" "$WP_CONFIG"
+    echo "   ✅ Auto-czyszczenie kosza: 14 dni"
+fi
+
+# 5. WordPress memory limit
+if ! docker exec "$CONTAINER" grep -q "WP_MEMORY_LIMIT" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i "/^<?php/a\\
+define('WP_MEMORY_LIMIT', '256M');" "$WP_CONFIG"
+    echo "   ✅ WP Memory Limit: 256M"
+fi
+
+# 6. Dodaj systemowy cron automatycznie
 CRON_CMD="*/5 * * * * docker exec \$(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) php /var/www/html/wp-cron.php > /dev/null 2>&1"
 if ! crontab -l 2>/dev/null | grep -q "wp-cron.php"; then
     (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
-    echo "✅ Systemowy cron dodany (co 5 min)"
+    echo "   ✅ Systemowy cron dodany (co 5 min)"
 else
-    echo "ℹ️  Systemowy cron już istnieje"
+    echo "   ℹ️  Systemowy cron już istnieje"
 fi
+
+# 7. Flush FastCGI cache
+if [ -d "/opt/stacks/wordpress/nginx-cache" ]; then
+    rm -rf /opt/stacks/wordpress/nginx-cache/*
+    echo "   ✅ FastCGI cache wyczyszczony"
+fi
+
+echo ""
+echo "✅ Wszystkie optymalizacje zastosowane!"
 INITEOF
 sudo chmod +x "$STACK_DIR/wp-init.sh"
 
+# Skrypt do czyszczenia cache (przydatne po aktualizacji treści)
+cat <<'CACHEEOF' | sudo tee "$STACK_DIR/flush-cache.sh" > /dev/null
+#!/bin/bash
+# Wyczyść FastCGI cache Nginx (po aktualizacji treści/wtyczek)
+rm -rf /opt/stacks/wordpress/nginx-cache/*
+docker compose -f /opt/stacks/wordpress/docker-compose.yaml exec nginx nginx -s reload 2>/dev/null || true
+echo "✅ FastCGI cache wyczyszczony"
+CACHEEOF
+sudo chmod +x "$STACK_DIR/flush-cache.sh"
+
 # =============================================================================
-# URUCHOMIENIE
+# 9. URUCHOMIENIE
 # =============================================================================
 
-# Uprawnienia dla wp-content (www-data = UID 33)
-sudo chown -R 33:33 "$STACK_DIR/wp-content"
+# Uprawnienia dla wp-content (www-data = UID 82 w alpine, 33 w debian)
+# wordpress:fpm-alpine używa UID 82
+sudo chown -R 82:82 "$STACK_DIR/wp-content"
 
+echo ""
+echo "🚀 Uruchamiam WordPress (FPM + Nginx)..."
 sudo docker compose up -d
 
-# Health check - WordPress potrzebuje ~30-60s na inicjalizację
-echo "⏳ Czekam na uruchomienie WordPress..."
+# Health check - FPM + Nginx potrzebują ~30-60s
+echo "⏳ Czekam na uruchomienie..."
 source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
-    sleep 10
-    if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ WordPress działa na porcie $PORT"
-    else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
-    fi
+    for i in $(seq 1 6); do
+        sleep 10
+        if curl -sf "http://localhost:$PORT" > /dev/null 2>&1; then
+            echo "✅ WordPress działa (po $((i*10))s)"
+            break
+        fi
+        echo "   ... $((i*10))s"
+        if [ "$i" -eq 6 ]; then
+            echo "❌ Nie wystartował w 60s!"
+            sudo docker compose logs --tail 30
+            exit 1
+        fi
+    done
 fi
 
 # =============================================================================
-# PODSUMOWANIE
+# 10. PODSUMOWANIE
 # =============================================================================
 
 echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "✅ WordPress zainstalowany! (Performance Edition)"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+
 if [ -n "$DOMAIN" ]; then
     echo "🔗 Otwórz https://$DOMAIN aby dokończyć instalację"
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
+
 echo ""
 echo "📝 Następne kroki:"
-echo "   1. Otwórz stronę - kreator instalacji WordPress"
-echo "   2. Po instalacji uruchom fix HTTPS + wp-cron:"
+echo "   1. Otwórz stronę → kreator instalacji WordPress"
+echo "   2. Po instalacji uruchom optymalizacje:"
 echo "      ssh \$SSH_ALIAS 'cd $STACK_DIR && ./wp-init.sh'"
+echo ""
 
-# Sprawdź czy Redis jest zainstalowany
+echo "⚡ Co jest zoptymalizowane automatycznie:"
+echo "   • PHP-FPM alpine (lżejszy niż Apache)"
+echo "   • OPcache + JIT (2-3x szybszy PHP)"
+echo "   • Nginx FastCGI cache (cached strony = 0ms PHP)"
+echo "   • Gzip compression (-60-80% bandwidth)"
+echo "   • Security headers (X-Frame, X-Content-Type, Referrer-Policy)"
+echo "   • FPM ondemand ($FPM_MAX_CHILDREN workerów, tuning na ${TOTAL_RAM}MB RAM)"
+echo ""
+
+# Redis info
 if [ -d "/opt/stacks/redis" ] && sudo docker compose -f /opt/stacks/redis/docker-compose.yaml ps -q redis 2>/dev/null | head -1 | grep -q .; then
+    echo "💡 Masz Redis! Zainstaluj wtyczkę 'Redis Object Cache' → TTFB -70%"
     echo ""
-    echo "💡 Masz Redis na serwerze! Zainstaluj wtyczkę 'Redis Object Cache'"
-    echo "   w panelu WordPress dla lepszej wydajności."
 fi
 
+echo "📋 Przydatne komendy:"
+echo "   ./flush-cache.sh          - wyczyść FastCGI cache"
+echo "   ./wp-init.sh              - zastosuj optymalizacje wp-config.php"
+echo "   docker compose logs -f    - logi (FPM + Nginx)"
 echo ""
+
 echo "   Tryb bazy: $WP_DB_MODE"
 if [ "$WP_DB_MODE" = "sqlite" ]; then
     echo "   Baza: SQLite w wp-content/database/"
 else
     echo "   Baza: MySQL ($DB_HOST:$DB_PORT/$DB_NAME)"
 fi
+
 echo ""
-echo "💡 Optymalizacja wydajności:"
-echo "   • Redis Object Cache - zainstaluj wtyczkę 'Redis Object Cache' (TTFB -50-80%)"
-echo "   • Converter for Media - automatyczna konwersja obrazów do WebP"
-echo "   • wordpress:fpm-alpine - lżejszy obraz (wymaga FastCGI w reverse proxy)"
+echo "💡 Dodatkowe optymalizacje (ręczne):"
+echo "   • Redis Object Cache - wtyczka WP → -70% zapytań do DB"
+echo "   • Converter for Media - wtyczka WP → automatyczny WebP"
