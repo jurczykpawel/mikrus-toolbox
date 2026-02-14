@@ -6,7 +6,7 @@
 # https://github.com/unclecode/crawl4ai
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=2500  # unclecode/crawl4ai:latest (Chromium + Python + ML deps)
+# IMAGE_SIZE_MB=3500  # unclecode/crawl4ai:latest (1.4GB compressed → ~3.5GB on disk)
 #
 # ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 2.0+)!
 #     Crawl4AI uruchamia headless Chromium do crawlowania stron.
@@ -21,6 +21,13 @@ PORT=${PORT:-8000}
 echo "--- 🕷️ Crawl4AI Setup ---"
 echo "AI-powered web crawler z REST API."
 echo ""
+
+# Port binding: Cytrus wymaga 0.0.0.0, Cloudflare/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
 
 # Sprawdź dostępny RAM - WYMAGANE minimum 2GB!
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
@@ -64,10 +71,18 @@ services:
     image: unclecode/crawl4ai:latest
     restart: always
     ports:
-      - "$PORT:11235"
+      - "${BIND_ADDR}$PORT:11235"
     environment:
       - CRAWL4AI_API_TOKEN=$CRAWL4AI_API_TOKEN
+      - CRAWL4AI_MODE=api
+      - PLAYWRIGHT_MAX_CONCURRENCY=2
     shm_size: "1g"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -84,7 +99,7 @@ if type wait_for_healthy &>/dev/null; then
 else
     for i in $(seq 1 9); do
         sleep 10
-        if curl -sf "http://localhost:$PORT" > /dev/null 2>&1 || curl -sf "http://localhost:$PORT/health" > /dev/null 2>&1; then
+        if curl -sf "http://localhost:$PORT/health" > /dev/null 2>&1; then
             echo "✅ Crawl4AI działa (po $((i*10))s)"
             break
         fi
@@ -98,10 +113,19 @@ else
 fi
 
 echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "✅ Crawl4AI zainstalowany!"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
 if [ -n "$DOMAIN" ]; then
-    echo "🔗 API dostępne pod: https://$DOMAIN"
+    echo "🔗 API: https://$DOMAIN"
+    echo "🔗 Playground: https://$DOMAIN/playground"
+    echo "🔗 Monitor: https://$DOMAIN/monitor"
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+    echo "   API: http://localhost:$PORT"
+    echo "   Playground: http://localhost:$PORT/playground"
+    echo "   Monitor: http://localhost:$PORT/monitor"
 fi
 echo ""
 echo "🔑 API Token: $CRAWL4AI_API_TOKEN"
