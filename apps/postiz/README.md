@@ -66,7 +66,7 @@ Każda platforma wymaga własnych kluczy API - konfiguracja w Settings → Integ
 
 ### Redis (external vs bundled)
 
-Domyślnie auto-detekcja: jeśli standalone Redis (`apps/redis`) działa na serwerze, Postiz łączy się z nim (obsługuje hasło z `/opt/stacks/redis/.redis_password`). W przeciwnym razie bundluje `redis:7.2-alpine`.
+Domyślnie auto-detekcja: jeśli port 6379 nasłuchuje na serwerze, Postiz łączy się z istniejącym Redis. W przeciwnym razie bundluje `redis:7.2-alpine`.
 
 ```bash
 # Wymuś bundled Redis (nawet gdy istnieje external)
@@ -74,6 +74,9 @@ POSTIZ_REDIS=bundled ./local/deploy.sh postiz --ssh=hanna
 
 # Wymuś external Redis (host)
 POSTIZ_REDIS=external ./local/deploy.sh postiz --ssh=hanna
+
+# External Redis z hasłem
+REDIS_PASS=tajneHaslo POSTIZ_REDIS=external ./local/deploy.sh postiz --ssh=hanna
 ```
 
 ## Ograniczenia

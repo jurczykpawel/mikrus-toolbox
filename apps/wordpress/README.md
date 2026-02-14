@@ -55,7 +55,7 @@ WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=hanna --domain-type=cytrus -
 
 ### Redis (external vs bundled)
 
-Domyślnie auto-detekcja: jeśli `redis-cli ping` na serwerze zwraca PONG, WordPress łączy się z istniejącym Redis (bez nowego kontenera). W przeciwnym razie bundluje `redis:alpine`.
+Domyślnie auto-detekcja: jeśli port 6379 nasłuchuje na serwerze, WordPress łączy się z istniejącym Redis (bez nowego kontenera). W przeciwnym razie bundluje `redis:alpine`.
 
 ```bash
 # Wymuś bundled Redis (nawet gdy istnieje external)
@@ -63,6 +63,9 @@ WP_REDIS=bundled ./local/deploy.sh wordpress --ssh=hanna
 
 # Wymuś external Redis (host)
 WP_REDIS=external ./local/deploy.sh wordpress --ssh=hanna
+
+# External Redis z hasłem
+REDIS_PASS=tajneHaslo WP_REDIS=external ./local/deploy.sh wordpress --ssh=hanna
 
 # Auto-detekcja (domyślne)
 ./local/deploy.sh wordpress --ssh=hanna

@@ -6,11 +6,14 @@
 #
 # Użycie:
 #   source /opt/mikrus-toolbox/lib/redis-detect.sh
-#   detect_redis "$MODE"  # MODE: auto|external|bundled
+#   detect_redis "$MODE" "$BUNDLED_NAME"  # MODE: auto|external|bundled
 #
-# Po wywołaniu ustawia zmienne:
+# Po wywołaniu ustawia:
 #   REDIS_HOST  - "host-gateway" (external) lub nazwa serwisu (bundled)
-#   REDIS_PASS  - hasło (puste jeśli bez hasła lub bundled)
+#
+# Hasło Redis:
+#   Jeśli external Redis wymaga hasła, user ustawia REDIS_PASS env var.
+#   detect_redis NIE dotyka REDIS_PASS - to odpowiedzialność callera.
 #
 # Parametry:
 #   $1 - tryb: auto|external|bundled
@@ -21,39 +24,26 @@ detect_redis() {
     local BUNDLED_NAME="${2:-redis}"
 
     REDIS_HOST=""
-    REDIS_PASS=""
 
-    # Sprawdź czy external Redis odpowiada (z obsługą hasła)
-    _redis_ping() {
-        # Najpierw sprawdź standalone Redis z hasłem (apps/redis)
-        if [ -f /opt/stacks/redis/.redis_password ]; then
-            local pass
-            pass=$(cat /opt/stacks/redis/.redis_password 2>/dev/null)
-            if [ -n "$pass" ] && redis-cli -a "$pass" ping 2>/dev/null | grep -q PONG; then
-                REDIS_PASS="$pass"
-                return 0
-            fi
-        fi
-        # Fallback: Redis bez hasła
-        if redis-cli ping 2>/dev/null | grep -q PONG; then
-            return 0
-        fi
-        return 1
+    # Sprawdź czy coś nasłuchuje na porcie 6379
+    _redis_listening() {
+        ss -tlnp 2>/dev/null | grep -q ':6379 ' \
+            || nc -z localhost 6379 2>/dev/null
     }
 
     if [ "$MODE" = "external" ]; then
-        if _redis_ping; then
+        if _redis_listening; then
             REDIS_HOST="host-gateway"
             echo "✅ Redis: zewnętrzny (host, wymuszony)"
         else
-            echo "⚠️  Redis external nie odpowiada na localhost:6379"
+            echo "⚠️  Redis external: nic nie nasłuchuje na localhost:6379"
             echo "   Używam bundled Redis zamiast tego."
             REDIS_HOST="$BUNDLED_NAME"
         fi
     elif [ "$MODE" = "bundled" ]; then
         REDIS_HOST="$BUNDLED_NAME"
         echo "✅ Redis: bundled (wymuszony)"
-    elif _redis_ping; then
+    elif _redis_listening; then
         REDIS_HOST="host-gateway"
         echo "✅ Redis: zewnętrzny (wykryty na localhost:6379)"
     else

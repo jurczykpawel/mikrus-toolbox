@@ -18,6 +18,7 @@
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - baza PostgreSQL
 #   DOMAIN (opcjonalne)
 #   POSTIZ_REDIS (opcjonalne): auto|external|bundled (domyślnie: auto)
+#   REDIS_PASS (opcjonalne): hasło do external Redis
 
 set -e
 
@@ -65,8 +66,13 @@ if type detect_redis &>/dev/null; then
     detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
 else
     REDIS_HOST="postiz-redis"
-    REDIS_PASS=""
     echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
+fi
+
+# Hasło Redis (user podaje przez REDIS_PASS env var)
+REDIS_PASS="${REDIS_PASS:-}"
+if [ -n "$REDIS_PASS" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
+    echo "   🔑 Hasło Redis: ustawione"
 fi
 
 # Buduj REDIS_URL

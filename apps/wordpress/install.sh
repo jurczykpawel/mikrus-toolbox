@@ -24,6 +24,8 @@
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - z deploy.sh (tryb MySQL)
 #   WP_DB_MODE - "mysql" (domyślne) lub "sqlite"
 #   DOMAIN - domena (opcjonalne)
+#   WP_REDIS (opcjonalne): auto|external|bundled (domyślnie: auto)
+#   REDIS_PASS (opcjonalne): hasło do external Redis
 
 set -e
 
@@ -72,8 +74,13 @@ if type detect_redis &>/dev/null; then
 else
     # Fallback jeśli lib niedostępne
     REDIS_HOST="redis"
-    REDIS_PASS=""
     echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
+fi
+
+# Hasło Redis (user podaje przez REDIS_PASS env var)
+REDIS_PASS="${REDIS_PASS:-}"
+if [ -n "$REDIS_PASS" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
+    echo "   🔑 Hasło Redis: ustawione"
 fi
 
 # Domain
@@ -122,8 +129,12 @@ echo ""
 sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache,redis-data}
 cd "$STACK_DIR"
 
-# Zapisz Redis host dla wp-init.sh
+# Zapisz Redis config dla wp-init.sh
 echo "$REDIS_HOST" | sudo tee "$STACK_DIR/.redis-host" > /dev/null
+if [ -n "$REDIS_PASS" ]; then
+    echo "$REDIS_PASS" | sudo tee "$STACK_DIR/.redis-pass" > /dev/null
+    sudo chmod 600 "$STACK_DIR/.redis-pass"
+fi
 
 # =============================================================================
 # 3a. DOCKERFILE (wordpress + redis extension + WP-CLI)
@@ -611,6 +622,10 @@ fi
 REDIS_HOST="redis"
 if [ -f "/opt/stacks/wordpress/.redis-host" ]; then
     REDIS_HOST=$(cat /opt/stacks/wordpress/.redis-host)
+fi
+REDIS_PASS=""
+if [ -f "/opt/stacks/wordpress/.redis-pass" ]; then
+    REDIS_PASS=$(cat /opt/stacks/wordpress/.redis-pass)
 fi
 # host-gateway → WordPress widzi Redis przez extra_hosts
 if [ "$REDIS_HOST" = "host-gateway" ]; then
