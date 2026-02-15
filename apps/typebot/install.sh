@@ -7,7 +7,7 @@
 #
 # IMAGE_SIZE_MB=3000  # 2x obrazy Next.js (~1.5GB każdy)
 # UWAGA: Typebot wymaga minimum ~12GB dysku i 600MB RAM.
-#        Zalecany plan: Mikrus 2.0+ lub VPS z większym dyskiem.
+#        Zalecany plan: Mikrus 3.0+ lub VPS z większym dyskiem.
 #
 # Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
@@ -26,6 +26,22 @@ PORT_VIEWER=8082
 
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
+
+# Check for shared Mikrus DB (doesn't support gen_random_uuid on PG 12)
+if [[ "$DB_HOST" == psql*.mikr.us ]]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BŁĄD: Typebot NIE działa ze współdzieloną bazą Mikrusa!   ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Typebot (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
+    echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
+    echo "║                                                                ║"
+    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
+    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    exit 1
+fi
 
 # Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then

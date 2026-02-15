@@ -139,45 +139,81 @@ The MCP server runs on your local machine:
 
 MCP isn't just a "run commands" interface. Because the AI model sees tool descriptions, app metadata (RAM requirements, DB dependencies, ports), and server state, it can **guide the user through the entire setup** like an expert sysadmin. The key: **the model should always read the app's README first** (via `list_apps` metadata) before suggesting anything.
 
-**Example 1: Uptime Kuma** (simple, no database needed)
+**Example 1: Uptime Kuma** (no database needed)
 
 ```
 User: "I want to monitor my websites"
 AI:   *reads apps/uptime-kuma/README.md*
-      "Uptime Kuma is perfect for that - it's a self-hosted monitoring
-       dashboard (replaces UptimeRobot). Uses built-in SQLite, no
-       external database needed. Only ~80MB RAM. Want me to install it?"
+      "Uptime Kuma is perfect - self-hosted monitoring dashboard
+       (replaces UptimeRobot). Uses built-in SQLite, no external
+       database needed. Only ~80MB RAM. Want me to install it?"
 User: "Yes"
 AI:   → deploy_app { app: "uptime-kuma", domain_type: "cytrus", domain: "auto" }
        "Done! Uptime Kuma is live at https://xyz.byst.re
         Create your admin account on first visit."
 ```
 
-**Example 2: n8n** (requires dedicated database)
+**Example 2: WordPress** (shared MySQL + Redis auto-detection)
+
+```
+User: "Set up a WordPress site"
+AI:   *reads apps/wordpress/README.md*
+      "WordPress Performance Edition (FPM + Nginx + Redis cache).
+       Uses only ~80-100MB RAM. For the database, the free shared
+       MySQL on Mikrus works fine - no need for a paid one.
+       Redis for caching: I'll check if you already have Redis
+       running - if yes, WordPress will connect to it; if not,
+       I'll bundle redis:alpine (~96MB extra RAM)."
+User: "Go ahead"
+AI:   → deploy_app { app: "wordpress", domain_type: "cytrus", domain: "auto" }
+       "Done! WordPress is live. Redis was bundled automatically.
+        Run wp-init.sh to apply performance optimizations."
+```
+
+**Example 3: n8n** (shared DB won't work - dedicated required)
 
 ```
 User: "Install n8n"
 AI:   *reads apps/n8n/README.md*
-      "n8n requires PostgreSQL with the pgcrypto extension.
-       The free shared DB on Mikrus won't work - no permission
-       to create extensions. You'll need a dedicated PostgreSQL
-       instance (29 zł/year for 512MB / 10GB).
-       Do you already have one, or should I walk you through ordering it?"
+      "n8n needs PostgreSQL, but the free shared DB on Mikrus won't
+       work - it's PostgreSQL 12 which lacks gen_random_uuid().
+       You'll need a dedicated PostgreSQL (29 zł/year for 512MB/10GB).
+       Do you have one, or should I walk you through ordering?"
 User: "I don't have one yet"
 AI:   "Go to https://mikr.us/panel/?a=cloud and order PostgreSQL 512MB.
-        Once you have the credentials (host, user, password, database),
-        share them with me and I'll deploy n8n."
+        Once you have the credentials, share them with me."
 User: *shares credentials*
 AI:   → deploy_app { app: "n8n", db_source: "custom", db_host: "...", ... }
-       "Done! n8n is live. I'd also recommend setting up backups."
+       "Done! n8n is live. I'd recommend setting up backups too."
 ```
 
+**Example 4: Postiz** (dedicated DB + Redis auto-detection)
+
+```
+User: "I need a social media scheduler"
+AI:   *reads apps/postiz/README.md*
+      "Postiz is a Buffer/Hootsuite alternative. It needs:
+       1. Dedicated PostgreSQL (shared won't work - PG 12 limitation)
+       2. Redis - I'll auto-detect: if you already have Redis running,
+          Postiz will reuse it; otherwise I'll bundle redis:7.2-alpine.
+       Do you have a dedicated PostgreSQL?"
+User: "Yes, same one I use for n8n"
+AI:   *checks apps/postiz/install.sh - uses schema separation*
+      "Great - Postiz uses a separate schema, so it can share the same
+       PostgreSQL instance as n8n without conflicts."
+      → deploy_app { app: "postiz", db_source: "custom", db_host: "...", ... }
+      "Postiz is deploying. I detected Redis from your WordPress setup,
+       so Postiz will reuse it (no extra RAM). Note: first start takes
+       60-90s. After that, create your admin account and disable
+       registration for security."
+```
+
+**Key principle:** The model should always read the app's README (via `list_apps` metadata) before suggesting anything. READMEs contain gotchas like pgcrypto requirements, RAM limits, and Redis auto-detection that the model must communicate to the user.
+
 Planned improvements:
-- **Dependency awareness** - "Postiz needs Redis. I'll bundle it automatically."
 - **Resource budgeting** - "You have 1.2GB free RAM. This app needs ~800MB - want to upgrade to Mikrus 3.0 first?"
 - **Post-deploy checklist** - security hardening, SSL verification, backup setup, monitoring
 - **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + GateFlow in the right order
-- **README-driven intelligence** - model reads each app's README before proposing config, catching gotchas like pgcrypto requirements or RAM limits
 
 ## Development
 

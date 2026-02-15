@@ -1,19 +1,33 @@
-# 🔗 LittleLink - Wizytówka (Wersja Lekka)
+# LittleLink - Wizytowka (Wersja Lekka)
 
-Ekstremalnie lekka alternatywa dla Linktree. Czysty HTML + CSS.
+Ekstremalnie lekka alternatywa dla Linktree. Czysty HTML + CSS, zero bazy danych, zero PHP.
 
-## 🚀 Instalacja
+## Instalacja
 
 ```bash
-./local/deploy.sh littlelink
+./local/deploy.sh littlelink --ssh=mikrus --domain-type=cytrus --domain=auto
 ```
 
-## 🛠️ Jak edytować?
-LittleLink nie ma panelu admina. Edytujesz plik `index.html`.
+## Wymagania
 
-**Workflow "Lazy Engineera":**
-1. Użyj `./local/sync.sh down /var/www/twoja-domena ./moj-bio`, aby pobrać pliki na komputer.
-2. Wyedytuj `index.html` w VS Code (dodaj swoje linki).
-3. Użyj `./local/sync.sh up ./moj-bio /var/www/twoja-domena`, aby wysłać zmiany na serwer.
+- **RAM:** ~5MB (nginx:alpine)
+- **Dysk:** ~50MB (obraz Docker)
+- **Baza danych:** brak
+- **Port:** 8090
 
-Zero bazy danych. Zero PHP. Działa błyskawicznie nawet na najtańszym Mikrusie.
+## Jak edytowac?
+
+LittleLink nie ma panelu admina. Edytujesz plik `index.html` bezposrednio.
+
+**Workflow:**
+1. Pobierz pliki na komputer:
+   ```bash
+   ./local/sync.sh down mikrus /opt/stacks/littlelink/html ./moj-bio
+   ```
+2. Wyedytuj `index.html` w VS Code (dodaj swoje linki, avatar, kolory)
+3. Wyslij zmiany na serwer:
+   ```bash
+   ./local/sync.sh up mikrus ./moj-bio /opt/stacks/littlelink/html
+   ```
+
+Dziala blyskawicznie nawet na najtanszym Mikrusie.

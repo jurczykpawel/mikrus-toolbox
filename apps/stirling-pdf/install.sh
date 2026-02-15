@@ -7,9 +7,9 @@
 #
 # IMAGE_SIZE_MB=1000  # frooodle/s-pdf:latest (~1GB z Java+LibreOffice)
 #
-# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 2.0+)!
+# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
 #     Stirling-PDF używa Java (Spring Boot) + LibreOffice do konwersji.
-#     Na Mikrus 1.0 (1GB RAM) może powodować zawieszenie serwera.
+#     Na Mikrus 2.1 (1GB RAM) może powodować zawieszenie serwera.
 #
 # Opcjonalne zmienne środowiskowe:
 #   DOMAIN - domena dla Stirling-PDF
@@ -31,10 +31,10 @@ if [ "$TOTAL_RAM" -lt 1800 ]; then
     echo "║  ❌ BŁĄD: Za mało RAM dla Stirling-PDF!                        ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                                        ║"
-    echo "║  Wymagane:    2048MB RAM (Mikrus 2.0+)                         ║"
+    echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                         ║"
     echo "║                                                                ║"
     echo "║  Stirling-PDF używa Java + LibreOffice (~600-800MB RAM).      ║"
-    echo "║  Na Mikrus 1.0 zawiesza serwer!                               ║"
+    echo "║  Na Mikrus 2.1 zawiesza serwer!                               ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  💡 ALTERNATYWA: Gotenberg                                     ║"
     echo "║     Lekkie API do konwersji dokumentów (~150MB RAM)           ║"

@@ -11,6 +11,13 @@
 # Temp files
 *.log
 *.tmp
+npm-debug.log*
+yarn-error.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
 
 # Project-specific
 local/gateflow-metrics*.csv

@@ -89,6 +89,7 @@ export async function handleListApps(
   lines.push("---");
   lines.push("Deploy with: deploy_app { app_name: '...', domain_type: 'cytrus|cloudflare|local' }");
   lines.push("Apps requiring a database need: db_source: 'shared' or 'custom' with credentials.");
+  lines.push("IMPORTANT: Shared PostgreSQL is v12 - apps using Prisma/pgcrypto (n8n, umami, listmonk, postiz, typebot) need db_source: 'custom'. Always read the app's README first.");
 
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }

@@ -156,7 +156,7 @@ if [ "$MAX_MEM" -lt 500 ]; then
 elif [ "$MAX_MEM" -lt 700 ]; then
   echo "⚠️  Zużycie RAM: Dopuszczalne, ale monitoruj przy większym obciążeniu"
 else
-  echo "🔥 Zużycie RAM: Wysokie! Rozważ Mikrus 4.0 (2GB RAM) lub optymalizację"
+  echo "🔥 Zużycie RAM: Wysokie! Rozważ Mikrus 3.0 (2GB RAM) lub optymalizację"
 fi
 
 echo ""

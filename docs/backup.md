@@ -18,7 +18,7 @@ Najprostszy start - wbudowany serwer backupowy Mikrusa (`strych.mikr.us`).
 1. Aktywuj backup w [Panelu Mikrus → Backup](https://mikr.us/panel/?a=backup)
 2. Uruchom konfigurację:
    ```bash
-   ./local/deploy.sh system/setup-backup-mikrus.sh
+   ./local/setup-backup.sh mikrus
    ```
 3. Gotowe! Codziennie backup leci na `strych.mikr.us`.
 

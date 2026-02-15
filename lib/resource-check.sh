@@ -79,7 +79,7 @@ check_resources() {
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
         echo -e "   ${YELLOW}⚠ Ta aplikacja wymaga dużo RAM.${NC}"
-        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 2.0+ (2GB RAM)${NC}"
+        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 3.0+ (2GB RAM)${NC}"
         [ "$STATUS" -lt 1 ] && STATUS=1
     fi
 

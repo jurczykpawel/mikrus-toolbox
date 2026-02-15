@@ -7,7 +7,7 @@
 #
 # IMAGE_SIZE_MB=3000  # ghcr.io/gitroomhq/postiz-app:v2.11.3 (1.2GB compressed → ~3GB on disk)
 #
-# ⚠️  UWAGA: Ta aplikacja zaleca minimum 2GB RAM (Mikrus 2.0+)!
+# ⚠️  UWAGA: Ta aplikacja zaleca minimum 2GB RAM (Mikrus 3.0+)!
 #     Postiz (Next.js) + Redis = ~1-1.5GB RAM
 #
 # Pinujemy v2.11.3 (pre-Temporal). Od v2.12+ Postiz wymaga Temporal + Elasticsearch
@@ -46,7 +46,7 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo "║  ⚠️  UWAGA: Postiz zaleca minimum 2GB RAM!                   ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Zalecane:    2048MB RAM (Mikrus 2.0+)                       ║"
+    echo "║  Zalecane:    2048MB RAM (Mikrus 3.0+)                       ║"
     echo "║                                                              ║"
     echo "║  Postiz + Redis = ~1-1.5GB RAM                               ║"
     echo "║  Na małym serwerze może być wolny.                           ║"
@@ -84,6 +84,22 @@ if [ "$REDIS_HOST" = "host-gateway" ]; then
     fi
 else
     REDIS_URL="redis://postiz-redis:6379"
+fi
+
+# Check for shared Mikrus DB (doesn't support gen_random_uuid on PG 12)
+if [[ "$DB_HOST" == psql*.mikr.us ]]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BŁĄD: Postiz NIE działa ze współdzieloną bazą Mikrusa!    ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Postiz (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
+    echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
+    echo "║                                                                ║"
+    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
+    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    exit 1
 fi
 
 # Sprawdź dane bazy PostgreSQL

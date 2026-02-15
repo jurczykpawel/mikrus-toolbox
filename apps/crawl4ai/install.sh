@@ -8,9 +8,9 @@
 #
 # IMAGE_SIZE_MB=3500  # unclecode/crawl4ai:latest (1.4GB compressed → ~3.5GB on disk)
 #
-# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 2.0+)!
+# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
 #     Crawl4AI uruchamia headless Chromium do crawlowania stron.
-#     Na Mikrus 1.0 (1GB RAM) może powodować zawieszenie serwera.
+#     Na Mikrus 2.1 (1GB RAM) może powodować zawieszenie serwera.
 #
 # Znany problem: memory leak przy intensywnym użyciu (Chrome procesy się kumulują).
 # PLAYWRIGHT_MAX_CONCURRENCY=2 ogranicza, ale przy dużym ruchu rozważ cron restart.
@@ -41,10 +41,10 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo "║  ❌ BŁĄD: Za mało RAM dla Crawl4AI!                          ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Wymagane:    2048MB RAM (Mikrus 2.0+)                       ║"
+    echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                       ║"
     echo "║                                                              ║"
     echo "║  Crawl4AI uruchamia headless Chromium (~1-1.5GB RAM).        ║"
-    echo "║  Na Mikrus 1.0 zawiesza serwer!                             ║"
+    echo "║  Na Mikrus 2.1 zawiesza serwer!                             ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1

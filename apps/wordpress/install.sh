@@ -18,7 +18,7 @@
 #   1. MySQL (domyślny) - zewnętrzny MySQL z Mikrusa lub własny
 #      deploy.sh automatycznie wykrywa potrzebę MySQL i pyta o dane
 #   2. SQLite - WP_DB_MODE=sqlite, zero konfiguracji DB
-#      Idealny dla prostych blogów na Mikrus 1.0
+#      Idealny dla prostych blogów na Mikrus 2.1
 #
 # Zmienne środowiskowe:
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - z deploy.sh (tryb MySQL)

@@ -65,31 +65,31 @@ Aplikacje znajdują się w `apps/<nazwa>/install.sh`:
 | Aplikacja | Opis | Baza danych | Port |
 |-----------|------|-------------|------|
 | **uptime-kuma** | Monitoring usług (jak UptimeRobot) | - | 3001 |
-| **ntfy** | Powiadomienia push | - | 8080 |
-| **filebrowser** | Menedżer plików web | - | 8080 |
+| **ntfy** | Powiadomienia push | - | 8085 |
+| **filebrowser** | Menedżer plików web | - | 8095 |
 | **dockge** | UI do zarządzania Docker Compose | - | 5001 |
-| **stirling-pdf** | Narzędzia PDF online | - | 8080 |
-| **n8n** | Automatyzacja workflow | PostgreSQL | 5678 |
+| **stirling-pdf** | Narzędzia PDF online | - | 8087 |
+| **n8n** | Automatyzacja workflow | PostgreSQL* | 5678 |
 | **umami** | Web analytics (alt. Google Analytics) | PostgreSQL* | 3000 |
 | **nocodb** | Baza danych (alt. Airtable) | PostgreSQL | 8080 |
-| **listmonk** | Newsletter i mailing | PostgreSQL | 9000 |
-| **typebot** | Kreator chatbotów | PostgreSQL | 3000 |
-| **vaultwarden** | Menedżer haseł (Bitwarden) | SQLite | 8080 |
-| **linkstack** | Strona z linkami (alt. Linktree) | SQLite | 8080 |
+| **listmonk** | Newsletter i mailing | PostgreSQL* | 9000 |
+| **typebot** | Kreator chatbotów | PostgreSQL* | 8081/8082 |
+| **vaultwarden** | Menedżer haseł (Bitwarden) | SQLite | 8088 |
+| **linkstack** | Strona z linkami (alt. Linktree) | SQLite | 8090 |
 | **redis** | Cache/baza klucz-wartość | - | 6379 |
 | **wordpress** | CMS (Performance Edition: FPM+Nginx+Redis) | MySQL/SQLite | 8080 |
 | **convertx** | Konwerter plików (100+ formatów) | SQLite | 3000 |
-| **postiz** | Social media scheduler | PostgreSQL | 5000 |
+| **postiz** | Social media scheduler | PostgreSQL* | 5000 |
 | **crawl4ai** | Web crawler z AI extraction | - | 8000 |
-| **cap** | Screen recording i sharing | PostgreSQL | 3000 |
+| **cap** | Screen recording i sharing | MySQL | 3000 |
 | **gateflow** | Waitlist / launch page | PostgreSQL (Supabase) | 3001 |
 | **minio** | Object storage (S3-compatible) | - | 9000 |
 | **gotenberg** | API do konwersji dokumentów (PDF) | - | 3000 |
-| **cookie-hub** | Consent management (GDPR) | - | 3000 |
-| **littlelink** | Strona z linkami (prostsza alt.) | - | 8080 |
-| **mcp-docker** | MCP server do zarządzania Docker | - | 8811 |
+| **cookie-hub** | Consent management (GDPR) | - | 8091 |
+| **littlelink** | Strona z linkami (prostsza alt.) | - | 8090 |
+| **mcp-docker** | MCP server do zarządzania Docker | - | - |
 
-*umami wymaga PostgreSQL z rozszerzeniem `pgcrypto` - NIE działa ze współdzieloną bazą Mikrusa!
+*PostgreSQL z gwiazdką wymaga `gen_random_uuid()` (PG 13+) — NIE działa ze współdzieloną bazą Mikrusa (PG 12). Dotyczy: n8n, umami, listmonk, typebot, postiz. Wymagana dedykowana baza.
 
 **WordPress** to specjalna aplikacja z własnym Dockerfile (PHP redis ext + WP-CLI), bundled Redis,
 auto-tuning FPM na podstawie RAM i post-install skryptem `wp-init.sh`. Szczegóły: `apps/wordpress/README.md`.

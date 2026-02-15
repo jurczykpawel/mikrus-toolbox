@@ -37,7 +37,7 @@ export const deployAppTool = {
         type: "string",
         enum: ["shared", "custom"],
         description:
-          "'shared' = free Mikrus DB (no pgcrypto, limited). 'custom' = external DB with explicit credentials. Required for apps that need a database.",
+          "'shared' = free Mikrus DB (PostgreSQL 12, no gen_random_uuid - does NOT work for n8n/umami/listmonk/postiz/typebot). 'custom' = dedicated DB with explicit credentials. Always check the app's README first.",
       },
       db_host: { type: "string", description: "Custom database host." },
       db_port: {

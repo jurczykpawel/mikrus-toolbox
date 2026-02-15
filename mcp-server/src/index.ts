@@ -23,7 +23,7 @@ import {
 } from "./tools/server-status.js";
 
 const server = new Server(
-  { name: "mikrus-toolbox", version: "0.2.0" },
+  { name: "mikrus-toolbox", version: "0.1.0" },
   { capabilities: { tools: {} } }
 );
 

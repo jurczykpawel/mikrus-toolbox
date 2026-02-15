@@ -460,7 +460,7 @@ if [ -n "$AVAILABLE_RAM" ] && [ -n "$AVAILABLE_DISK" ]; then
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
         echo -e "   ${YELLOW}⚠ Ta aplikacja wymaga dużo RAM (${REQUIRED_RAM}MB).${NC}"
-        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 2.0+ (2GB RAM)${NC}"
+        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 3.0+ (2GB RAM)${NC}"
     fi
 else
     echo -e "   ${YELLOW}⚠ Nie udało się sprawdzić zasobów${NC}"

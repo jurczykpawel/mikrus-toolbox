@@ -27,10 +27,10 @@ Mikrus Toolbox obsługuje trzy tryby pracy:
 
 ```bash
 # Interaktywny
-./local/deploy.sh n8n --ssh=mikrus
+./local/deploy.sh uptime-kuma --ssh=mikrus
 
 # Pełna automatyzacja
-./local/deploy.sh n8n --ssh=mikrus --db-source=shared --domain=auto --yes
+./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=cytrus --domain=auto --yes
 ```
 
 ---
@@ -119,10 +119,10 @@ Używane przez aplikacje wymagające PostgreSQL (n8n, listmonk, umami, nocodb, t
 Pobiera dane bazy z API Mikrus. Wymaga zalogowania w przeglądarce.
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus --db-source=shared --domain=n8n.example.com --yes
+./local/deploy.sh nocodb --ssh=mikrus --db-source=shared --domain=nocodb.example.com --yes
 ```
 
-**Uwaga:** Shared DB nie obsługuje rozszerzenia `pgcrypto`. Aplikacje wymagające `pgcrypto` (n8n, umami) potrzebują `--db-source=custom`.
+**Uwaga:** Shared PostgreSQL na Mikrusie to wersja 12, która nie obsługuje `gen_random_uuid()` (wymagane PG 13+). Aplikacje używające Prisma lub pgcrypto **nie działają** na shared: n8n, umami, listmonk, postiz, typebot. Użyj `--db-source=custom` z dedykowaną bazą.
 
 ### --db-source=custom
 
@@ -428,7 +428,8 @@ DOMAIN=...  # Opcjonalna domena
 ```bash
 ./local/deploy.sh n8n \
   --ssh=production \
-  --db-source=shared \
+  --db-source=custom \
+  --db-host=psql.example.com \
   --domain=n8n.mojafirma.pl \
   --dry-run
 ```
