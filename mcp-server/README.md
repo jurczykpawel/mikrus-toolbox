@@ -139,20 +139,21 @@ The MCP server runs on your local machine:
 
 MCP isn't just a "run commands" interface. Because the AI model sees tool descriptions, app metadata (RAM requirements, DB dependencies, ports), and server state, it can **guide the user through the entire setup** like an expert sysadmin. The key: **the model should always read the app's README first** (via `list_apps` metadata) before suggesting anything.
 
-**Example 1: Postiz** (works with free shared DB)
+**Example 1: Uptime Kuma** (simple, no database needed)
 
 ```
-User: "Install Postiz for social media scheduling"
-AI:   *reads apps/postiz/README.md*
-      "Postiz needs PostgreSQL and Redis. Your Mikrus has a free
-       shared PostgreSQL (200MB) - enough for social media scheduling.
-       Redis will be bundled automatically. Want me to use the free DB?"
-User: "Yes, free one is fine"
-AI:   → deploy_app { app: "postiz", db_source: "shared", ... }
-       "Done! Postiz is live at https://xyz.byst.re"
+User: "I want to monitor my websites"
+AI:   *reads apps/uptime-kuma/README.md*
+      "Uptime Kuma is perfect for that - it's a self-hosted monitoring
+       dashboard (replaces UptimeRobot). Uses built-in SQLite, no
+       external database needed. Only ~80MB RAM. Want me to install it?"
+User: "Yes"
+AI:   → deploy_app { app: "uptime-kuma", domain_type: "cytrus", domain: "auto" }
+       "Done! Uptime Kuma is live at https://xyz.byst.re
+        Create your admin account on first visit."
 ```
 
-**Example 2: n8n** (requires dedicated DB)
+**Example 2: n8n** (requires dedicated database)
 
 ```
 User: "Install n8n"
@@ -161,11 +162,14 @@ AI:   *reads apps/n8n/README.md*
        The free shared DB on Mikrus won't work - no permission
        to create extensions. You'll need a dedicated PostgreSQL
        instance (29 zł/year for 512MB / 10GB).
-       Want me to proceed with that?"
-User: "Yes, go ahead"
+       Do you already have one, or should I walk you through ordering it?"
+User: "I don't have one yet"
+AI:   "Go to https://mikr.us/panel/?a=cloud and order PostgreSQL 512MB.
+        Once you have the credentials (host, user, password, database),
+        share them with me and I'll deploy n8n."
+User: *shares credentials*
 AI:   → deploy_app { app: "n8n", db_source: "custom", db_host: "...", ... }
-       "Done! n8n is live. I'd also recommend setting up backups
-        to protect your workflows."
+       "Done! n8n is live. I'd also recommend setting up backups."
 ```
 
 Planned improvements:
