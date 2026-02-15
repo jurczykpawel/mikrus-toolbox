@@ -121,10 +121,14 @@ Wszystko na Twoim serwerze. Zero opłat za "execution". Zero limitów.
 ### 1. Konfiguracja SSH
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/pavvel11/mikrus-n8n-manager/main/setup_mikrus.sh)
+# Linux / macOS
+bash <(curl -s https://raw.githubusercontent.com/pavvel11/mikrus-toolbox/main/local/setup-ssh.sh)
+
+# Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/pavvel11/mikrus-toolbox/main/local/setup-ssh.ps1 | iex
 ```
 
-Skrypt zapyta o dane z maila od Mikrusa i skonfiguruje połączenie SSH.
+Skrypt zapyta o dane z maila od Mikrusa (host, port, hasło) i skonfiguruje klucz SSH + alias.
 
 ### 2. Pobierz toolbox
 
@@ -202,13 +206,26 @@ Claude zna ten toolbox (dzięki `AGENTS.md`) i przeprowadzi Cię przez cały pro
 
 ### Koszt Mikrusa
 
-| Plan | RAM | Dysk | Cena/mies | Cena/rok |
-|------|-----|------|-----------|----------|
-| Mikrus 3.0 | 1GB | 10GB | 20 zł | 240 zł |
-| Mikrus 4.0 | 2GB | 20GB | 35 zł | 420 zł |
-| Mikrus 4.1 | 8GB | 80GB | 34 zł | - |
-| PostgreSQL (dedykowana) | - | 10GB | ~2.5 zł | 29 zł |
-| Domena .pl | - | - | - | ~50 zł |
+| Plan | RAM | Dysk | Cena/rok |
+|------|-----|------|----------|
+| Mikrus 2.1 | 1GB | 10GB | 75 zł |
+| Mikrus 3.0 | 2GB | 25GB | 130 zł |
+| Mikrus 3.5 | 4GB | 40GB | 197 zł |
+| Mikrus 4.1 (2x CPU + 2x IOPS) | 8GB | 80GB | 395 zł |
+| Mikrus 4.2 (2x CPU + 2x IOPS) | 16GB | 160GB | 790 zł |
+
+#### Usługi dodatkowe
+
+| Usługa | RAM | Dysk | Cena/rok |
+|--------|-----|------|----------|
+| MySQL / MariaDB | 512MB | 10GB | 25 zł |
+| MySQL / MariaDB | 1024MB | 20GB | 47 zł |
+| PostgreSQL | 512MB | 10GB | 29 zł |
+| PostgreSQL | 1024MB | 50GB | 119 zł |
+| MongoDB | 512MB | 5GB | 25 zł |
+| Uptime Kuma | 256MB | 10GB | 15 zł |
+| Umami | 512MB | 1GB | 15 zł |
+| Domena .pl | - | - | ~50 zł |
 
 ### Self-hosted vs. SaaS
 
@@ -235,9 +252,9 @@ Claude zna ten toolbox (dzięki `AGENTS.md`) i przeprowadzi Cię przez cały pro
 
 **SaaS-y:** Zapier + Mailchimp + Typeform + UptimeRobot + hosting = **~$142/mies (~7000 zł/rok)**
 
-**Mikrus Toolbox:** Mikrus 3.0 + domena + baza = **319 zł/rok**
+**Mikrus Toolbox:** Mikrus 3.0 (130 zł) + domena (50 zł) + PostgreSQL (29 zł) = **209 zł/rok**
 
-**Oszczędność: ~6700 zł/rok (95%)**
+**Oszczędność: ~6800 zł/rok (97%)**
 
 ---
 
@@ -245,14 +262,14 @@ Claude zna ten toolbox (dzięki `AGENTS.md`) i przeprowadzi Cię przez cały pro
 
 | Stack | Plan | RAM |
 |-------|------|-----|
-| Podstawa (Caddy + Dockge) | Mikrus 1.0 | ~100MB |
-| + n8n | Mikrus 3.0 | ~500MB |
-| + Listmonk + Uptime Kuma | Mikrus 3.0 | ~800MB |
-| + Typebot + GateFlow | Mikrus 4.0 | ~1.5GB |
-| Pełny stack (10+ narzędzi) | Mikrus 4.0 | ~1.8GB |
+| Podstawa (Caddy + Dockge) | Mikrus 2.1 | ~100MB |
+| + n8n | Mikrus 2.1 | ~500MB |
+| + Listmonk + Uptime Kuma | Mikrus 2.1 | ~800MB |
+| + Typebot + GateFlow | Mikrus 3.0 | ~1.5GB |
+| Pełny stack (10+ narzędzi) | Mikrus 3.0 | ~1.8GB |
 | Coolify (PaaS, 280+ apek) | Mikrus 4.1 | ~500-800MB (platforma) |
 
-> Stirling-PDF i Crawl4AI wymagają Mikrus 4.0+ (2GB RAM). Lekka alternatywa: Gotenberg (~150MB).
+> Stirling-PDF i Crawl4AI wymagają Mikrus 3.0+ (2GB RAM). Lekka alternatywa: Gotenberg (~150MB).
 
 ---
 
@@ -301,7 +318,7 @@ ssh mikrus 'docker stats --no-stream'
 Tak. Usługi w kontenerach Docker, dostęp z zewnątrz tylko przez HTTPS (Caddy/Cytrus), szyfrowane backupy off-site.
 
 **Ile RAMu potrzebuję?**
-Mikrus 3.0 (1GB) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu: Mikrus 4.0 (2GB). Coolify: Mikrus 4.1 (8GB).
+Mikrus 2.1 (1GB) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu: Mikrus 3.0 (2GB). Coolify: Mikrus 4.1 (8GB).
 
 **Co z bazą danych?**
 Aplikacje wymagające PostgreSQL/MySQL korzystają z bazy Mikrusa (darmowa 200MB lub dedykowana 10GB za 29 zł/rok). Nie instaluj bazy na serwerze - to zjada zasoby.

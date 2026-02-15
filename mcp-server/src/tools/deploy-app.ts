@@ -1,0 +1,191 @@
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { getDefaultAlias } from "../lib/config.js";
+import { getAppsDir, getDeployShPath, resolveRepoRoot } from "../lib/repo.js";
+import { parseAppMetadata } from "../lib/app-metadata.js";
+
+export const deployAppTool = {
+  name: "deploy_app",
+  description:
+    "Deploy an application to a Mikrus VPS server. Runs the local deploy.sh script with --yes flag (non-interactive). All required parameters must be provided. For apps requiring a database, specify db_source. For public access, specify domain_type and domain. Use list_apps first to see available apps and their requirements.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      app_name: {
+        type: "string",
+        description:
+          "Application name (e.g. 'n8n', 'uptime-kuma', 'wordpress'). Use list_apps to see available apps.",
+      },
+      ssh_alias: {
+        type: "string",
+        description:
+          "SSH alias. If omitted, uses the default configured server.",
+      },
+      domain_type: {
+        type: "string",
+        enum: ["cytrus", "cloudflare", "local"],
+        description:
+          "'cytrus' = free Mikrus subdomain (*.byst.re etc.), 'cloudflare' = own domain via Cloudflare DNS, 'local' = no domain (SSH tunnel access only).",
+      },
+      domain: {
+        type: "string",
+        description:
+          "Domain name. 'auto' for automatic Cytrus subdomain assignment. Full domain for cloudflare (e.g. 'app.example.com'). Not needed for domain_type='local'.",
+      },
+      db_source: {
+        type: "string",
+        enum: ["shared", "custom"],
+        description:
+          "'shared' = free Mikrus DB (no pgcrypto, limited). 'custom' = external DB with explicit credentials. Required for apps that need a database.",
+      },
+      db_host: { type: "string", description: "Custom database host." },
+      db_port: {
+        type: "string",
+        description: "Custom database port. Default: 5432 (PostgreSQL) or 3306 (MySQL).",
+      },
+      db_name: { type: "string", description: "Database name." },
+      db_user: { type: "string", description: "Database user." },
+      db_pass: { type: "string", description: "Database password." },
+      port: {
+        type: "string",
+        description:
+          "Override default app port. Auto-increments if the port is occupied.",
+      },
+      dry_run: {
+        type: "boolean",
+        description: "Preview what would be done without executing. Default: false.",
+      },
+      extra_env: {
+        type: "object",
+        description:
+          "Additional environment variables for specific apps. Examples: { DOMAIN_PUBLIC: 'static.byst.re' } for filebrowser, { WP_DB_MODE: 'sqlite' } for wordpress.",
+        additionalProperties: { type: "string" },
+      },
+    },
+    required: ["app_name"],
+  },
+};
+
+export async function handleDeployApp(
+  args: Record<string, unknown>
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  const appName = args.app_name as string;
+  const alias = (args.ssh_alias as string) ?? getDefaultAlias();
+  const domainType = args.domain_type as string | undefined;
+  const domain = args.domain as string | undefined;
+  const dbSource = args.db_source as string | undefined;
+  const dryRun = (args.dry_run as boolean) ?? false;
+  const extraEnv = (args.extra_env as Record<string, string>) ?? {};
+
+  // 1. Validate app exists
+  const appDir = join(getAppsDir(), appName);
+  if (!existsSync(appDir)) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: `App '${appName}' not found. Use list_apps to see available applications.`,
+        },
+      ],
+    };
+  }
+
+  // 2. Check app requirements
+  const meta = parseAppMetadata(appDir);
+  if (meta?.requiresDb && !dbSource) {
+    const dbInfo =
+      meta.dbType === "mysql"
+        ? "This app requires MySQL. Provide db_source: 'shared' or 'custom'."
+        : "This app requires PostgreSQL. Provide db_source: 'shared' or 'custom'.";
+    const pgcryptoNote = meta.specialNotes.some((n) => n.includes("pgcrypto"))
+      ? "\nNote: This app requires pgcrypto extension - use db_source: 'custom' (shared DB does not support pgcrypto)."
+      : "";
+    return {
+      isError: true,
+      content: [{ type: "text", text: `${dbInfo}${pgcryptoNote}` }],
+    };
+  }
+
+  // 3. Build deploy.sh arguments
+  const deployArgs: string[] = [appName, "--yes", `--ssh=${alias}`];
+
+  if (domainType) deployArgs.push(`--domain-type=${domainType}`);
+  if (domain) deployArgs.push(`--domain=${domain}`);
+  if (dbSource) deployArgs.push(`--db-source=${dbSource}`);
+  if (args.db_host) deployArgs.push(`--db-host=${args.db_host}`);
+  if (args.db_port) deployArgs.push(`--db-port=${args.db_port}`);
+  if (args.db_name) deployArgs.push(`--db-name=${args.db_name}`);
+  if (args.db_user) deployArgs.push(`--db-user=${args.db_user}`);
+  if (args.db_pass) deployArgs.push(`--db-pass=${args.db_pass}`);
+  if (args.port) deployArgs.push(`--port=${args.port}`);
+  if (dryRun) deployArgs.push("--dry-run");
+
+  // 4. Build environment
+  const env: Record<string, string> = {
+    ...process.env as Record<string, string>,
+    TERM: "dumb",
+    ...extraEnv,
+  };
+
+  const deployPath = getDeployShPath();
+  const repoRoot = resolveRepoRoot();
+
+  // 5. Execute deploy.sh
+  return new Promise((resolve) => {
+    execFile(
+      deployPath,
+      deployArgs,
+      {
+        cwd: repoRoot,
+        env,
+        timeout: 600_000, // 10 minutes (large images like convertx ~5.3GB)
+        maxBuffer: 5 * 1024 * 1024, // 5MB
+      },
+      (error, stdout, stderr) => {
+        const output = [stdout?.toString() ?? "", stderr?.toString() ?? ""]
+          .filter(Boolean)
+          .join("\n");
+
+        if (error) {
+          // Timeout
+          if ((error as any).killed) {
+            resolve({
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: `Deployment timed out after 10 minutes.\n\nPartial output:\n${output}`,
+                },
+              ],
+            });
+            return;
+          }
+
+          resolve({
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: `Deployment failed (exit code ${(error as any).code ?? "?"}).\n\nOutput:\n${output}`,
+              },
+            ],
+          });
+          return;
+        }
+
+        resolve({
+          content: [
+            {
+              type: "text",
+              text: dryRun
+                ? `[DRY RUN] Would deploy ${appName}:\n\n${output}`
+                : `Deployment complete for ${appName}:\n\n${output}`,
+            },
+          ],
+        });
+      }
+    );
+  });
+}
