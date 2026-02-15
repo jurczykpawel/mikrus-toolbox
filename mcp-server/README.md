@@ -1,5 +1,7 @@
 # Mikrus Toolbox MCP Server
 
+> **Alpha** - This server is in early development. The core tools work, but expect rough edges, missing validations, and evolving APIs. Feedback and bug reports welcome via [Issues](https://github.com/pavvel11/mikrus-toolbox/issues).
+
 MCP (Model Context Protocol) server for deploying self-hosted apps to [Mikrus](https://mikr.us) VPS servers.
 
 Allows AI assistants (Claude Desktop, etc.) to set up SSH connections, browse available apps, deploy applications, and even install custom Docker apps - all via natural language.
@@ -132,6 +134,28 @@ The MCP server runs on your local machine:
 - `setup_server` configures SSH keys and `~/.ssh/config`
 - `deploy_app` shells out to `local/deploy.sh` (resource checks, DB setup, domain config)
 - `deploy_custom_app` uploads compose files directly via SSH
+
+## Smart Guidance (Roadmap)
+
+MCP isn't just a "run commands" interface. Because the AI model sees tool descriptions, app metadata (RAM requirements, DB dependencies, ports), and server state, it can **guide the user through the entire setup** like an expert sysadmin:
+
+```
+User: "Install n8n"
+AI:   "n8n needs PostgreSQL. Your Mikrus has the free shared DB (200MB).
+       Want me to use that, or set up a dedicated instance (29 zł/year, 10GB)?
+       I'll also configure daily backups to keep your workflows safe."
+User: "Use shared, and yes to backups"
+AI:   → deploy_app { app: "n8n", db_source: "shared", ... }
+      → deploy_app { app: "n8n-backup", ... }
+       "Done! n8n is live at https://xyz.byst.re
+        Default login: admin@example.com / check server logs for password"
+```
+
+Planned improvements:
+- **Dependency awareness** - "You're deploying Postiz, it needs Redis. I'll bundle it automatically."
+- **Resource budgeting** - "You have 1.2GB free RAM. This app needs ~800MB. That leaves little room - want to upgrade to Mikrus 3.0 first?"
+- **Post-deploy checklist** - security hardening, SSL verification, backup setup, monitoring
+- **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + GateFlow in the right order
 
 ## Development
 
