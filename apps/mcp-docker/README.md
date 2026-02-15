@@ -8,6 +8,13 @@ Most łączący Twojego Agenta AI (Claude, Gemini, Cursor) z Twoim serwerem.
 ./local/deploy.sh mcp-docker
 ```
 
+## Wymagania
+
+- **RAM:** ~10MB
+- **Dysk:** ~100MB
+- **Port:** brak (protokół MCP przez SSH)
+- **Baza danych:** Nie
+
 ## 🧠 Co to daje?
 Dzięki temu narzędziu, Twój asystent AI na komputerze lokalnym może "widzieć" i kontrolować kontenery na Mikrusie przez bezpieczny tunel SSH.
 

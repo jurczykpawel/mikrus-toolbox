@@ -3,6 +3,8 @@
 # Mikrus Toolbox - Umami Analytics
 # Simple, privacy-friendly alternative to Google Analytics.
 #
+# IMAGE_SIZE_MB=500  # ghcr.io/umami-software/umami:postgresql-latest (Next.js ~500MB)
+#
 # WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
 #     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud

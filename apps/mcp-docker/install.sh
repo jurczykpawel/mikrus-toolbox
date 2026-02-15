@@ -4,6 +4,8 @@
 # Provides a Model Context Protocol (MCP) interface for Docker.
 # Allows AI Agents (Claude, Gemini) to manage your Mikrus containers.
 # Author: Paweł (Lazy Engineer)
+#
+# IMAGE_SIZE_MB=100  # alpine + socat (~100MB)
 
 set -e
 

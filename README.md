@@ -310,7 +310,7 @@ Aplikacje wymagające PostgreSQL/MySQL korzystają z bazy Mikrusa (darmowa 200MB
 Tak. Skrypty działają na dowolnym VPS z Dockerem. Mikrus jest zalecany bo jest tani i polski, ale `deploy.sh` działa z każdym serwerem po SSH.
 
 **Jak zaktualizować aplikację?**
-Każda aplikacja ma `update.sh`. Uruchom: `./local/deploy.sh apps/nazwa/update.sh`
+Uruchom `deploy.sh` ponownie - skrypt wykryje istniejącą instalację i zaktualizuje obraz Docker. Dane w volumes zostaną zachowane.
 
 ---
 

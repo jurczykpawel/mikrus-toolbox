@@ -6,6 +6,8 @@
 # Written in Go - very lightweight.
 # Author: Paweł (Lazy Engineer)
 #
+# IMAGE_SIZE_MB=150  # listmonk/listmonk:latest (Go binary, ~150MB)
+#
 # WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
 #     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud

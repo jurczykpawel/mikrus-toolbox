@@ -8,6 +8,13 @@ Szybki magazyn danych w pamięci RAM (In-Memory Key-Value Store).
 ./local/deploy.sh redis
 ```
 
+## Wymagania
+
+- **RAM:** ~30MB
+- **Dysk:** ~130MB
+- **Port:** 6379 (TCP, brak interfejsu HTTP)
+- **Baza danych:** Nie
+
 ## 💡 Do czego Ci się przyda?
 Redis to "wspomagacz" dla innych aplikacji.
 - **Cache dla n8n:** Przyspiesza działanie workflowów.

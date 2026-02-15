@@ -8,7 +8,14 @@ Zamień swoją bazę danych w inteligentny arkusz kalkulacyjny.
 ./local/deploy.sh nocodb
 ```
 
-**Wymagania:** Zdecydowanie zalecamy podpięcie pod zewnętrzny PostgreSQL. Używanie wbudowanego SQLite przy większych danych może spowolnić serwer.
+## Wymagania
+
+- **RAM:** ~200MB
+- **Dysk:** ~400MB
+- **Port:** 8080
+- **Baza danych:** PostgreSQL (zalecany) lub SQLite (wbudowany)
+
+Zdecydowanie zalecamy podpięcie pod zewnętrzny PostgreSQL. Używanie wbudowanego SQLite przy większych danych może spowolnić serwer.
 
 ## 🔗 Ekosystem "Lazy Engineer"
 NocoDB to idealny "Backend" dla Twoich automatyzacji.

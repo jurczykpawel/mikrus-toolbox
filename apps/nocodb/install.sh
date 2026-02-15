@@ -5,6 +5,8 @@
 # Connects to your own database and turns it into a spreadsheet.
 # Author: Paweł (Lazy Engineer)
 #
+# IMAGE_SIZE_MB=400  # nocodb/nocodb:latest (Node.js app ~400MB)
+#
 # Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS (opcjonalne - bez nich używa SQLite)
 #   DOMAIN (opcjonalne)

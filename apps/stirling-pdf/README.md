@@ -8,6 +8,14 @@ Kombajn do PDF-ów. Zastępuje Adobe Acrobat Pro i niebezpieczne strony "online 
 ./local/deploy.sh stirling-pdf
 ```
 
+## Wymagania
+
+- **RAM:** ~500MB+ (Java + LibreOffice)
+- **Dysk:** ~1GB
+- **Port:** 8087
+- **Baza danych:** Nie
+- **Minimum:** Mikrus 2.0+ (2GB RAM)
+
 ## 💡 Co potrafi?
 - Łączenie i dzielenie PDF.
 - Konwersja PDF na Word/Zdjęcia (i odwrotnie).

@@ -4,6 +4,8 @@
 # Self-hosted digital products sales platform (Gumroad/EasyCart alternative)
 # Author: Paweł (Lazy Engineer)
 #
+# IMAGE_SIZE_MB=500  # gateflow (Next.js app ~500MB)
+#
 # Wymagane:
 #   - Mikrus 3.0+ (1GB RAM)
 #   - Konto Supabase (darmowe)
