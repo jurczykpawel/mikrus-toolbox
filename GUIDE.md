@@ -82,7 +82,7 @@ Aplikacje znajdują się w `apps/<nazwa>/install.sh`:
 | **postiz** | Social media scheduler | PostgreSQL* | 5000 |
 | **crawl4ai** | Web crawler z AI extraction | - | 8000 |
 | **cap** | Screen recording i sharing | MySQL | 3000 |
-| **gateflow** | Waitlist / launch page | PostgreSQL (Supabase) | 3001 |
+| **gateflow** | Waitlist / launch page | PostgreSQL (Supabase) | 3333 |
 | **minio** | Object storage (S3-compatible) | - | 9000 |
 | **gotenberg** | API do konwersji dokumentów (PDF) | - | 3000 |
 | **cookie-hub** | Consent management (GDPR) | - | 8091 |
