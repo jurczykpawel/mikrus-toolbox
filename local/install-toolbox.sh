@@ -52,13 +52,33 @@ rsync -az --delete \
     --exclude '*.md' \
     "$REPO_ROOT/" "$SSH_ALIAS:/opt/mikrus-toolbox/"
 
-# Dodaj do PATH (jeśli jeszcze nie dodane)
+# Dodaj do PATH — wykryj shell na serwerze i użyj właściwego pliku
+# zsh: ~/.zshenv (czytany ZAWSZE — interactive, non-interactive, login, non-login)
+# bash: ~/.bashrc (czytany przy ssh host "cmd" + interactive)
 echo "🔧 Konfiguruję PATH..."
+TOOLBOX_LINE='export PATH=/opt/mikrus-toolbox/local:$PATH'
 ssh "$SSH_ALIAS" "
-    if ! grep -q 'mikrus-toolbox/local' ~/.bashrc 2>/dev/null; then
-        echo '' >> ~/.bashrc
-        echo '# Mikrus Toolbox' >> ~/.bashrc
-        echo 'export PATH=/opt/mikrus-toolbox/local:\$PATH' >> ~/.bashrc
+    REMOTE_SHELL=\$(basename \"\$SHELL\" 2>/dev/null)
+
+    # zsh → ~/.zshenv
+    if [ \"\$REMOTE_SHELL\" = 'zsh' ]; then
+        if ! grep -q 'mikrus-toolbox/local' ~/.zshenv 2>/dev/null; then
+            echo '' >> ~/.zshenv
+            echo '# Mikrus Toolbox' >> ~/.zshenv
+            echo '$TOOLBOX_LINE' >> ~/.zshenv
+        fi
+    fi
+
+    # bash → ~/.bashrc (na początku, przed guardem interaktywnym)
+    if [ -f ~/.bashrc ]; then
+        if ! grep -q 'mikrus-toolbox/local' ~/.bashrc 2>/dev/null; then
+            sed -i '1i\\# Mikrus Toolbox\nexport PATH=/opt/mikrus-toolbox/local:\$PATH\n' ~/.bashrc
+        fi
+    fi
+
+    # Wyczyść stare wpisy z .profile
+    if grep -q 'mikrus-toolbox/local' ~/.profile 2>/dev/null; then
+        sed -i '/# Mikrus Toolbox/d; /mikrus-toolbox\/local/d' ~/.profile
     fi
 "
 

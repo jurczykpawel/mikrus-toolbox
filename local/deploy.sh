@@ -764,8 +764,13 @@ fi
 # Dry-run mode
 if [ "$DRY_RUN" = true ]; then
     echo -e "${BLUE}[dry-run] Symulacja wykonania:${NC}"
-    echo "  scp $SCRIPT_PATH $SSH_ALIAS:/tmp/mikrus-deploy-$$.sh"
-    echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/mikrus-deploy-$$.sh'\""
+    if is_on_server; then
+        echo "  bash $SCRIPT_PATH"
+        echo "  env: DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV"
+    else
+        echo "  scp $SCRIPT_PATH $SSH_ALIAS:/tmp/mikrus-deploy-$$.sh"
+        echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/mikrus-deploy-$$.sh'\""
+    fi
     echo ""
     echo -e "${BLUE}[dry-run] Po instalacji:${NC}"
     if [ "$NEEDS_DOMAIN" = true ]; then
