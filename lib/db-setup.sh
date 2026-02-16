@@ -320,8 +320,17 @@ check_schema_exists() {
         return 1
     fi
 
+    # Walidacja schematu (zapobieganie SQL injection)
+    if ! [[ "$SCHEMA" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo -e "${RED}Błąd: Nieprawidłowa nazwa schematu: $SCHEMA${NC}" >&2
+        return 1
+    fi
+
+    # Escape single quotes in DB_PASS (zapobieganie shell injection)
+    local ESCAPED_PASS="${DB_PASS//\'/\'\\\'\'}"
+
     # Sprawdź przez SSH czy schemat istnieje i ma tabele
-    local TABLE_COUNT=$(ssh "$SSH_ALIAS" "PGPASSWORD='$DB_PASS' psql -h '$DB_HOST' -p '${DB_PORT:-5432}' -U '$DB_USER' -d '$DB_NAME' -t -c \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$SCHEMA';\"" 2>/dev/null | tr -d ' ')
+    local TABLE_COUNT=$(ssh "$SSH_ALIAS" "PGPASSWORD='$ESCAPED_PASS' psql -h '$DB_HOST' -p '${DB_PORT:-5432}' -U '$DB_USER' -d '$DB_NAME' -t -c \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$SCHEMA';\"" 2>/dev/null | tr -d ' ')
 
     if [ -n "$TABLE_COUNT" ] && [ "$TABLE_COUNT" -gt 0 ]; then
         return 0  # Schemat istnieje i ma tabele

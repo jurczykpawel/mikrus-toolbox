@@ -88,7 +88,16 @@ export async function handleDeployApp(
     };
   }
 
-  // 1. Validate app exists
+  // 1. Validate app name (prevent path traversal)
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(appName)) {
+    return {
+      isError: true,
+      content: [
+        { type: "text", text: `Invalid app name '${appName}'. Use only lowercase letters, numbers, dashes, underscores.` },
+      ],
+    };
+  }
+
   const appDir = join(getAppsDir(), appName);
   if (!existsSync(appDir)) {
     return {
@@ -132,11 +141,23 @@ export async function handleDeployApp(
   if (args.port) deployArgs.push(`--port=${args.port}`);
   if (dryRun) deployArgs.push("--dry-run");
 
-  // 4. Build environment
+  // 4. Build environment (block dangerous env var overrides)
+  const BLOCKED_ENV_VARS = new Set([
+    "PATH", "HOME", "USER", "SHELL", "LD_PRELOAD", "LD_LIBRARY_PATH",
+    "NODE_OPTIONS", "NODE_PATH", "PYTHONPATH", "BASH_ENV", "ENV",
+    "SSH_AUTH_SOCK", "SSH_AGENT_PID", "TERM",
+  ]);
+  const safeExtraEnv: Record<string, string> = {};
+  for (const [key, val] of Object.entries(extraEnv)) {
+    if (!BLOCKED_ENV_VARS.has(key)) {
+      safeExtraEnv[key] = val;
+    }
+  }
+
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
     TERM: "dumb",
-    ...extraEnv,
+    ...safeExtraEnv,
   };
 
   const deployPath = getDeployShPath();

@@ -51,6 +51,25 @@ if [ -z "$DOMAIN" ] || [ -z "$PORT_OR_PATH" ]; then
     exit 1
 fi
 
+# Validate domain (prevent Caddyfile injection)
+if ! echo "$DOMAIN" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$'; then
+    echo "❌ Invalid domain: $DOMAIN (only letters, numbers, dots, dashes allowed)"
+    exit 1
+fi
+
+# Validate port (proxy mode) or path (static mode)
+if [ "$MODE" = "proxy" ]; then
+    if ! echo "$PORT_OR_PATH" | grep -qE '^[0-9]+$'; then
+        echo "❌ Invalid port: $PORT_OR_PATH (must be a number)"
+        exit 1
+    fi
+else
+    if ! echo "$PORT_OR_PATH" | grep -qE '^/[a-zA-Z0-9/_.-]+$'; then
+        echo "❌ Invalid path: $PORT_OR_PATH (must be an absolute path with safe characters)"
+        exit 1
+    fi
+fi
+
 # Check if domain already exists to avoid duplicates
 if grep -q "$DOMAIN" "$CADDYFILE"; then
     echo "⚠️  Domain $DOMAIN already exists in Caddyfile. Please edit manually."

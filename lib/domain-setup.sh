@@ -474,6 +474,12 @@ configure_domain_cloudflare() {
     local WEBROOT=$(ssh "$SSH_ALIAS" "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
 
     if [ -n "$WEBROOT" ]; then
+        # Walidacja domeny (zapobieganie Caddyfile/shell injection)
+        if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
+            echo -e "${RED}❌ Nieprawidłowa domena: $DOMAIN${NC}" >&2
+            return 1
+        fi
+
         # Static site (littlelink, etc.) - użyj trybu file_server
         echo "   Wykryto static site: $WEBROOT"
         if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$WEBROOT' static"; then
@@ -484,6 +490,12 @@ configure_domain_cloudflare() {
             echo -e "${YELLOW}⚠️  mikrus-expose niedostępny${NC}"
         fi
     else
+        # Walidacja domeny (zapobieganie Caddyfile/shell injection)
+        if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
+            echo -e "${RED}❌ Nieprawidłowa domena: $DOMAIN${NC}" >&2
+            return 1
+        fi
+
         # Docker app - użyj reverse_proxy
         if ssh "$SSH_ALIAS" "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
             echo -e "${GREEN}✅ HTTPS skonfigurowany (reverse_proxy)${NC}"

@@ -38,6 +38,9 @@ export async function deploy(
   analysis: ProjectAnalysis
 ): Promise<DeployResult> {
   // --- Input validation (prevent command injection) ---
+  const nameErr = validateName(config.name);
+  if (nameErr) return { ok: false, lines: [], url: null, error: nameErr };
+
   const aliasErr = validateAlias(config.alias);
   if (aliasErr) return { ok: false, lines: [], url: null, error: aliasErr };
 
@@ -263,7 +266,11 @@ async function deployNode(config: DeployConfig): Promise<DeployResult> {
   // 4. Write .env if provided
   if (config.envVars && Object.keys(config.envVars).length > 0) {
     const envContent = Object.entries(config.envVars)
-      .map(([k, v]) => `${k}=${v}`)
+      .map(([k, v]) => {
+        // Reject newlines in env values (prevent injection of extra env vars)
+        const safeVal = v.replace(/[\n\r]/g, "");
+        return `${k}=${safeVal}`;
+      })
       .join("\n");
     await sshExecWithStdin(
       alias,
@@ -356,7 +363,10 @@ async function deployDocker(config: DeployConfig): Promise<DeployResult> {
   // 3. Write .env
   if (config.envVars && Object.keys(config.envVars).length > 0) {
     const envContent = Object.entries(config.envVars)
-      .map(([k, v]) => `${k}=${v}`)
+      .map(([k, v]) => {
+        const safeVal = v.replace(/[\n\r]/g, "");
+        return `${k}=${safeVal}`;
+      })
       .join("\n");
     await sshExecWithStdin(
       alias,
@@ -615,7 +625,7 @@ function appendDomainResult(
 }
 
 /** Shell metacharacters that indicate command injection attempts. */
-const SHELL_METACHARS = /[;|&`$(){}!<>\n\r\\]/;
+const SHELL_METACHARS = /[;|&`$(){}!<>\n\r\\"']/;
 
 /**
  * Validate a shell command string (start_command, install_command).
@@ -647,6 +657,20 @@ function validateDomain(domain: string): string | null {
 function validateAlias(alias: string): string | null {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(alias)) {
     return `Invalid SSH alias: ${alias}. Use only letters, numbers, dashes, and underscores.`;
+  }
+  return null;
+}
+
+/**
+ * Validate a site/project name. Only allows [a-z0-9_-] to prevent path traversal
+ * and command injection when used in remote paths like /opt/stacks/{name}.
+ */
+function validateName(name: string): string | null {
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(name)) {
+    return `Invalid name: ${name}. Use only lowercase letters, numbers, dashes, and underscores.`;
+  }
+  if (name.includes("..")) {
+    return `Invalid name: ${name}. Path traversal not allowed.`;
   }
   return null;
 }

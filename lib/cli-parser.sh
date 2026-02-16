@@ -296,8 +296,8 @@ ask_if_empty() {
         read -p "$PROMPT: " VALUE
     fi
 
-    # Ustaw zmienną
-    eval "$VAR_NAME='$VALUE'"
+    # Ustaw zmienną (printf -v zamiast eval — bezpieczne dla wartości z apostrof)
+    printf -v "$VAR_NAME" '%s' "$VALUE"
     export "$VAR_NAME"
 }
 
@@ -361,9 +361,9 @@ ask_choice() {
         return 1
     fi
 
-    # Ustaw zmienną
+    # Ustaw zmienną (printf -v zamiast eval — bezpieczne dla wartości ze znakami specjalnymi)
     local VALUE="${OPTS[$((CHOICE-1))]}"
-    eval "$VAR_NAME='$VALUE'"
+    printf -v "$VAR_NAME" '%s' "$VALUE"
     export "$VAR_NAME"
 }
 
@@ -408,7 +408,8 @@ dry_run_cmd() {
         return 0
     fi
 
-    eval "$CMD"
+    # Bezpośrednie wywołanie (bez eval — unikamy command injection)
+    bash -c "$CMD"
 }
 
 # =============================================================================

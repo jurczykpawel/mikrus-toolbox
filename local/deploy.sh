@@ -688,8 +688,11 @@ if [ "$NEEDS_DB" = true ]; then
         fi
     fi
 
+    # Escape single quotes in DB_PASS (zapobieganie shell injection)
+    local ESCAPED_DB_PASS="${DB_PASS//\'/\'\\\'\'}"
+
     # Przygotuj zmienne środowiskowe
-    DB_ENV_VARS="DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$DB_PASS'"
+    DB_ENV_VARS="DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
 
     echo ""
     echo "📋 Baza danych:"

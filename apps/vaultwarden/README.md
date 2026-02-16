@@ -15,6 +15,13 @@ Lekki serwer Bitwarden napisany w Rust. Twoje hasla do wszystkich uslug w jednym
 - **Baza danych:** SQLite (wbudowany, zero konfiguracji)
 - **Port:** 8088
 
+## HTTPS jest OBOWIAZKOWY
+
+Vaultwarden przechowuje hasla — **nigdy nie uzywaj go bez HTTPS!**
+Bez szyfrowania TLS hasla sa przesylane czystym tekstem. Zawsze uzywaj domeny z certyfikatem SSL (Cytrus lub Cloudflare).
+
+Tryb `--domain-type=local` (tunel SSH) jest bezpieczny lokalnie, ale nie udostepniaj Vaultwarden publicznie bez HTTPS.
+
 ## Po instalacji
 
 1. **Zarejestruj sie natychmiast** po uruchomieniu uslugi — pierwsze konto zostaje adminem

@@ -8,7 +8,7 @@
 #   ./local/setup-stripe-gateflow.sh [domena]
 #
 # Przykłady:
-#   ./local/setup-stripe-gateflow.sh gf.automagicznie.pl
+#   ./local/setup-stripe-gateflow.sh app.example.com
 #   ./local/setup-stripe-gateflow.sh
 
 set -e

@@ -141,6 +141,15 @@ SSH_HOST=twoj-serwer ./tests/test-apps.sh
 
 ---
 
+## Bezpieczenstwo
+
+Znalazles podatnosc? **Nie twórz publicznego Issue!**
+
+Zamiast tego uzyj [GitHub Security Advisories](https://github.com/pavvel11/mikrus-toolbox/security/advisories/new)
+lub napisz prywatnie do autora. Szczegoly w [SECURITY.md](SECURITY.md).
+
+---
+
 ## Licencja
 
 Kontrybuując, zgadzasz się na udostępnienie swojego kodu na licencji [MIT](LICENSE).
