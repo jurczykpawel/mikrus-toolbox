@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { getDefaultAlias } from "../lib/config.js";
 import { getAppsDir, getDeployShPath, resolveRepoRoot } from "../lib/repo.js";
 import { parseAppMetadata } from "../lib/app-metadata.js";
+import { checkBackupStatus } from "../lib/backup-check.js";
 
 export const deployAppTool = {
   name: "deploy_app",
@@ -220,15 +221,20 @@ export async function handleDeployApp(
           return;
         }
 
-        resolve({
-          content: [
-            {
-              type: "text",
-              text: dryRun
-                ? `[DRY RUN] Would deploy ${appName}:\n\n${output}`
-                : `Deployment complete for ${appName}:\n\n${output}`,
-            },
-          ],
+        if (dryRun) {
+          resolve({
+            content: [
+              { type: "text", text: `[DRY RUN] Would deploy ${appName}:\n\n${output}` },
+            ],
+          });
+          return;
+        }
+
+        // Check backup status after successful deployment
+        checkBackupStatus(alias).then((backupWarning) => {
+          const text = `Deployment complete for ${appName}:\n\n${output}` +
+            (backupWarning ?? "");
+          resolve({ content: [{ type: "text", text }] });
         });
       }
     );

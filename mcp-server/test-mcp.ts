@@ -720,6 +720,7 @@ function testToolRegistrationIntegrity() {
     "deploy_site",
     "server_status",
     "setup_domain",
+    "setup_backup",
   ];
 
   for (const tool of expectedTools) {
@@ -765,6 +766,7 @@ function testToolDefinitions() {
     "deploySiteTool",
     "serverStatusTool",
     "setupDomainTool",
+    "setupBackupTool",
   ];
 
   for (const imp of imports) {

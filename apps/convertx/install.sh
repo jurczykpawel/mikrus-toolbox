@@ -31,8 +31,10 @@ sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus)"
 else
     echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
 fi
@@ -83,8 +85,10 @@ echo "════════════════════════�
 echo "✅ ConvertX zainstalowany!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Otwórz https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

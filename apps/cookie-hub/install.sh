@@ -14,7 +14,7 @@ echo "--- Cookie Hub Setup (Klaro!) ---"
 echo "Centralized server for Cookie Consent scripts."
 
 # Required: DOMAIN
-if [ -z "$DOMAIN" ]; then
+if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ]; then
     echo "Brak wymaganej zmiennej: DOMAIN"
     echo "   Uzycie: DOMAIN=assets.example.com ./install.sh"
     exit 1
@@ -191,6 +191,10 @@ echo ""
 echo "HOW TO USE:"
 echo "Paste this in <head> of every website:"
 echo ""
-echo "<link rel=\"stylesheet\" href=\"https://$DOMAIN/klaro.css\" />"
-echo "<script defer src=\"https://$DOMAIN/config.js\"></script>"
-echo "<script defer src=\"https://$DOMAIN/klaro.js\"></script>"
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    echo "<link rel=\"stylesheet\" href=\"https://$DOMAIN/klaro.css\" />"
+    echo "<script defer src=\"https://$DOMAIN/config.js\"></script>"
+    echo "<script defer src=\"https://$DOMAIN/klaro.js\"></script>"
+else
+    echo "(domena zostanie wyświetlona po konfiguracji)"
+fi

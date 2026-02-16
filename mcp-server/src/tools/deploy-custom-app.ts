@@ -1,5 +1,6 @@
 import { sshExec, sshExecWithStdin } from "../lib/ssh.js";
 import { getDefaultAlias } from "../lib/config.js";
+import { checkBackupStatus } from "../lib/backup-check.js";
 
 type ToolResult = {
   content: Array<{ type: string; text: string }>;
@@ -215,6 +216,12 @@ export async function handleDeployCustomApp(
   lines.push(`  ssh ${alias} "cd ${stackDir} && docker compose logs -f"`);
   lines.push(`  ssh ${alias} "cd ${stackDir} && docker compose restart"`);
   lines.push(`  ssh ${alias} "cd ${stackDir} && docker compose down"`);
+
+  // Check backup status after successful deployment
+  const backupWarning = await checkBackupStatus(alias);
+  if (backupWarning) {
+    lines.push(backupWarning);
+  }
 
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }

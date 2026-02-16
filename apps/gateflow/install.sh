@@ -288,7 +288,7 @@ ENVEOF
 elif grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
     echo "✅ Konfiguracja URL już istnieje"
 else
-    if [ -n "$DOMAIN" ]; then
+    if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         SITE_URL="https://$DOMAIN"
     elif [ -t 0 ]; then
         echo ""

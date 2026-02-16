@@ -19,9 +19,12 @@ sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
 # Domain for BASE_URL
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     NTFY_BASE_URL="https://$DOMAIN"
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    NTFY_BASE_URL="https://notify.example.com"
+    echo "✅ Domena: automatyczna (Cytrus) — BASE_URL zostanie zaktualizowany"
 else
     NTFY_BASE_URL="https://notify.example.com"
     echo "⚠️  Brak domeny - użyj --domain=... lub zaktualizuj BASE_URL później"
@@ -65,12 +68,14 @@ else
     fi
 fi
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
 echo "👤 Utwórz użytkownika do logowania w ntfy:"
-echo "   ssh \$SSH_ALIAS 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin TWOJ_USER'"
+echo "   ssh $SSH_ALIAS 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin TWOJ_USER'"
 echo "   (to nowy user wewnętrzny ntfy, nie systemowy)"

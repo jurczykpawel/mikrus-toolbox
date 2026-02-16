@@ -111,8 +111,10 @@ fi
 
 echo ""
 echo "✅ Umami zainstalowane pomyślnie"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

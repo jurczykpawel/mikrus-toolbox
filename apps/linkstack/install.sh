@@ -18,8 +18,10 @@ PORT=${PORT:-8090}
 echo "--- 🔗 LinkStack Setup ---"
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus)"
 else
     echo "⚠️  Brak domeny - używam localhost"
 fi
@@ -89,7 +91,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
     fi
@@ -98,8 +100,10 @@ fi
 echo ""
 echo "✅ LinkStack started!"
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Otwórz: https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Dostęp przez tunel SSH: ssh -L $PORT:localhost:$PORT <server>"
     echo "   Potem otwórz: http://localhost:$PORT"
@@ -113,7 +117,7 @@ echo "   🎯 Jesteś soloprenerem / masz jeden profil?"
 echo "      → Wybierz SQLite i nie myśl więcej"
 echo ""
 echo "   🏢 Robisz to dla firmy z wieloma pracownikami?"
-echo "      → MySQL (dane: ssh \$SSH_ALIAS 'curl -s -d"
+echo "      → MySQL (dane: ssh $SSH_ALIAS 'curl -s -d"
 echo "        \"srv=\\\$(hostname)&key=\\\$(cat /klucz_api)\" https://api.mikr.us/db.bash')"
 echo ""
 echo "   📝 Zapisz dane logowania admina - będą potrzebne później!"

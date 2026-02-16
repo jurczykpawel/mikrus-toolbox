@@ -51,8 +51,10 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
 fi
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus)"
 else
     echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
 fi
@@ -121,10 +123,12 @@ echo "════════════════════════�
 echo "✅ Crawl4AI zainstalowany!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 API: https://$DOMAIN"
     echo "🔗 Playground: https://$DOMAIN/playground"
     echo "🔗 Monitor: https://$DOMAIN/monitor"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
     echo "   API: http://localhost:$PORT"

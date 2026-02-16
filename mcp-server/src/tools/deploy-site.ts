@@ -3,6 +3,7 @@ import { basename, resolve } from "node:path";
 import { getDefaultAlias } from "../lib/config.js";
 import { detectProject, type ProjectAnalysis } from "../lib/project-detect.js";
 import { deploy, type DeployConfig } from "../lib/deploy-strategies.js";
+import { checkBackupStatus } from "../lib/backup-check.js";
 
 type ToolResult = {
   content: Array<{ type: string; text: string }>;
@@ -209,8 +210,12 @@ export async function handleDeploySite(
     };
   }
 
+  // Check backup status after successful deployment
+  const backupWarning = await checkBackupStatus(alias);
+  const text = result.lines.join("\n") + (backupWarning ?? "");
+
   return {
-    content: [{ type: "text", text: result.lines.join("\n") }],
+    content: [{ type: "text", text }],
   };
 }
 

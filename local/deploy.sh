@@ -817,7 +817,7 @@ fi
 DEPLOY_SUCCESS=false
 if is_on_server; then
     # Na serwerze: uruchom skrypt bezpośrednio (bez scp/cleanup)
-    if (export DEPLOY_SSH_ALIAS="$SSH_ALIAS" SSH_ALIAS="$SSH_ALIAS" $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash "$SCRIPT_PATH"); then
+    if (export DEPLOY_SSH_ALIAS="$SSH_ALIAS" SSH_ALIAS="$SSH_ALIAS" YES_MODE="$YES_MODE" $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash "$SCRIPT_PATH"); then
         DEPLOY_SUCCESS=true
     fi
     [ -n "$REMOTE_BUILD_FILE" ] && rm -f "$REMOTE_BUILD_FILE"
@@ -831,7 +831,7 @@ else
         CLEANUP_CMD="rm -f '$REMOTE_BUILD_FILE';"
     fi
 
-    if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
+    if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
         DEPLOY_SUCCESS=true
     fi
 fi

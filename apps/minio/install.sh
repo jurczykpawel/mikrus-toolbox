@@ -129,7 +129,7 @@ EOF
 sudo chmod 600 "$STACK_DIR/.env"
 
 # Konfiguracja HTTPS
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo ""
     echo "--- Konfiguruję HTTPS via Caddy ---"
     if command -v mikrus-expose &> /dev/null; then
@@ -152,9 +152,11 @@ echo "============================================"
 echo "✅ MinIO zainstalowany!"
 echo ""
 echo "📋 Dostęp:"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "   Console (Web UI): https://$DOMAIN"
     echo "   S3 API: http://localhost:$API_PORT (lokalnie)"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "   Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "   Console (Web UI): http://localhost:$CONSOLE_PORT"
     echo "   S3 API: http://localhost:$API_PORT"

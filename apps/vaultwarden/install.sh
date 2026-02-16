@@ -23,8 +23,10 @@ echo "Then, restart the container with SIGNUPS_ALLOWED=false to secure it."
 echo ""
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus)"
 else
     echo "⚠️  Brak domeny - używam localhost"
 fi
@@ -45,7 +47,7 @@ echo "$ADMIN_TOKEN" | sudo tee .admin_token > /dev/null
 sudo chmod 600 .admin_token
 
 # Set domain URL
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     DOMAIN_URL="https://$DOMAIN"
 else
     DOMAIN_URL="http://localhost:$PORT"
@@ -89,7 +91,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
     fi
@@ -97,8 +99,10 @@ fi
 
 echo ""
 echo "✅ Vaultwarden started!"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

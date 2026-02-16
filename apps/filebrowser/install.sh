@@ -177,8 +177,10 @@ echo "✅ FileBrowser zainstalowany!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 echo "📁 Panel Admin (wymaga logowania):"
-if [ -n "$DOMAIN_ADMIN" ]; then
+if [ -n "$DOMAIN_ADMIN" ] && [ "$DOMAIN_ADMIN" != "-" ]; then
     echo "   https://$DOMAIN_ADMIN"
+elif [ "$DOMAIN_ADMIN" = "-" ]; then
+    echo "   (domena zostanie skonfigurowana automatycznie)"
 else
     echo "   http://localhost:$PORT (użyj tunelu SSH)"
 fi

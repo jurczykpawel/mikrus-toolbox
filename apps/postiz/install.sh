@@ -124,11 +124,16 @@ DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
 JWT_SECRET=$(openssl rand -hex 32)
 
 # Domain / URLs
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
     MAIN_URL="https://$DOMAIN"
     FRONTEND_URL="https://$DOMAIN"
     BACKEND_URL="https://$DOMAIN/api"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus) — URL-e zostaną zaktualizowane"
+    MAIN_URL="http://localhost:$PORT"
+    FRONTEND_URL="http://localhost:$PORT"
+    BACKEND_URL="http://localhost:$PORT/api"
 else
     echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
     MAIN_URL="http://localhost:$PORT"
@@ -237,8 +242,10 @@ echo "════════════════════════�
 echo "✅ Postiz zainstalowany!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Otwórz https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

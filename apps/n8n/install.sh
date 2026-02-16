@@ -60,9 +60,12 @@ if [ "$DB_SCHEMA" != "public" ]; then
 fi
 
 # 2. Domain and webhook URL
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
     WEBHOOK_URL="https://$DOMAIN/"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus) — WEBHOOK_URL zostanie zaktualizowany"
+    WEBHOOK_URL=""
 else
     echo "⚠️  Brak domeny - webhooks będą wymagały ręcznej konfiguracji"
     WEBHOOK_URL=""
@@ -146,7 +149,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains (not Cytrus placeholder)
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     echo "--- Configuring HTTPS via Caddy ---"
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
@@ -157,8 +160,10 @@ fi
 
 echo ""
 echo "✅ n8n Installed & Started!"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN to finish setup."
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
     echo "   Then open: http://localhost:$PORT"

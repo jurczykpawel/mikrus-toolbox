@@ -42,9 +42,12 @@ else
 fi
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
     PUBLIC_URL="https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus) — PUBLIC_URL zostanie zaktualizowany"
+    PUBLIC_URL="http://localhost:$PORT"
 else
     echo "⚠️  Brak domeny - używam localhost"
     PUBLIC_URL="http://localhost:$PORT"
@@ -89,7 +92,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
     fi
@@ -97,8 +100,10 @@ fi
 
 echo ""
 echo "✅ NocoDB started!"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

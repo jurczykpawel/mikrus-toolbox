@@ -54,9 +54,12 @@ if [[ "$DB_HOST" == psql*.mikr.us ]]; then
 fi
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
     ROOT_URL="https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus) — ROOT_URL zostanie zaktualizowany"
+    ROOT_URL="http://localhost:$PORT"
 else
     echo "⚠️  Brak domeny - używam localhost"
     ROOT_URL="http://localhost:$PORT"
@@ -112,7 +115,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
     fi
@@ -120,8 +123,10 @@ fi
 
 echo ""
 echo "✅ Listmonk started!"
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

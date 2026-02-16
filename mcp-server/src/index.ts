@@ -29,6 +29,10 @@ import {
   setupDomainTool,
   handleSetupDomain,
 } from "./tools/configure-domain.js";
+import {
+  setupBackupTool,
+  handleSetupBackup,
+} from "./tools/setup-backup.js";
 
 const server = new Server(
   { name: "mikrus-toolbox", version: "0.1.0" },
@@ -44,6 +48,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     deploySiteTool,
     serverStatusTool,
     setupDomainTool,
+    setupBackupTool,
   ],
 }));
 
@@ -65,6 +70,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return handleServerStatus(args ?? {});
     case "setup_domain":
       return handleSetupDomain(args ?? {});
+    case "setup_backup":
+      return handleSetupBackup(args ?? {});
     default:
       return {
         content: [{ type: "text", text: `Unknown tool: ${name}` }],

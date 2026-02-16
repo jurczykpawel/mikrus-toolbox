@@ -70,7 +70,7 @@ if [ -n "$DOMAIN_BUILDER" ] && [ -n "$DOMAIN_VIEWER" ]; then
     # Explicit domains provided
     echo "✅ Builder: $DOMAIN_BUILDER"
     echo "✅ Viewer:  $DOMAIN_VIEWER"
-elif [ -n "$DOMAIN" ]; then
+elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     # Auto-generate from base domain
     DOMAIN_BUILDER="builder.${DOMAIN#builder.}"  # Remove 'builder.' prefix if present
     DOMAIN_VIEWER="${DOMAIN#builder.}"           # Remove 'builder.' prefix if present
@@ -155,7 +155,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN_BUILDER" ] && [[ "$DOMAIN_BUILDER" != *"pending"* ]] && [[ "$DOMAIN_BUILDER" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN_BUILDER" ] && [ "$DOMAIN_BUILDER" != "-" ] && [[ "$DOMAIN_BUILDER" != *"pending"* ]] && [[ "$DOMAIN_BUILDER" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
         sudo mikrus-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"
@@ -164,9 +164,11 @@ fi
 
 echo ""
 echo "✅ Typebot started!"
-if [ -n "$DOMAIN_BUILDER" ]; then
+if [ -n "$DOMAIN_BUILDER" ] && [ "$DOMAIN_BUILDER" != "-" ]; then
     echo "   Builder: https://$DOMAIN_BUILDER"
     echo "   Viewer:  https://$DOMAIN_VIEWER"
+elif [ "$DOMAIN_BUILDER" = "-" ]; then
+    echo "   Domeny zostaną skonfigurowane automatycznie po instalacji"
 else
     echo "   Builder: ssh -L $PORT_BUILDER:localhost:$PORT_BUILDER <server>"
     echo "   Viewer:  ssh -L $PORT_VIEWER:localhost:$PORT_VIEWER <server>"

@@ -22,8 +22,10 @@ echo "--- 📄 Gotenberg Setup ---"
 echo "Lekkie API do konwersji dokumentów (Go + Chromium + LibreOffice)"
 
 # Domain
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domena: $DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "✅ Domena: automatyczna (Cytrus)"
 else
     echo "⚠️  Brak domeny - używam localhost"
 fi
@@ -76,7 +78,7 @@ else
 fi
 
 # Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
         sudo mikrus-expose "$DOMAIN" "$PORT"
     fi
@@ -90,8 +92,10 @@ echo "   User: $GOTENBERG_USER"
 echo "   Pass: $GOTENBERG_PASS"
 echo "   Credentials: $STACK_DIR/.api_credentials"
 echo ""
-if [ -n "$DOMAIN" ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 API: https://$DOMAIN"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
     echo "🔗 API: http://localhost:$PORT"
 fi

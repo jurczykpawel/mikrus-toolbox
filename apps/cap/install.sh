@@ -22,7 +22,7 @@ echo "Cap pozwala nagrywać ekran i udostępniać wideo."
 echo ""
 
 # Wymagane: DOMAIN
-if [ -z "$DOMAIN" ]; then
+if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ]; then
     echo "❌ Brak wymaganej zmiennej: DOMAIN"
     echo ""
     echo "   Użycie (zewnętrzna baza + zewnętrzny S3):"
@@ -205,13 +205,15 @@ if [ "$USE_LOCAL_MINIO" == "true" ]; then
     echo "ℹ️  Bucket zostanie utworzony automatycznie przy pierwszym użyciu"
 fi
 
-echo ""
-echo "--- Konfiguruję HTTPS via Caddy ---"
-if command -v mikrus-expose &> /dev/null; then
-    sudo mikrus-expose "$DOMAIN" "$PORT"
-else
-    echo "⚠️  'mikrus-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
-    echo "   Lub skonfiguruj reverse proxy ręcznie na port $PORT"
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    echo ""
+    echo "--- Konfiguruję HTTPS via Caddy ---"
+    if command -v mikrus-expose &> /dev/null; then
+        sudo mikrus-expose "$DOMAIN" "$PORT"
+    else
+        echo "⚠️  'mikrus-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
+        echo "   Lub skonfiguruj reverse proxy ręcznie na port $PORT"
+    fi
 fi
 
 if [ "$USE_LOCAL_MINIO" == "true" ]; then
@@ -223,7 +225,13 @@ fi
 echo ""
 echo "============================================"
 echo "✅ Cap zainstalowany!"
-echo "🔗 Otwórz https://$DOMAIN aby rozpocząć"
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    echo "🔗 Otwórz https://$DOMAIN aby rozpocząć"
+elif [ "$DOMAIN" = "-" ]; then
+    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+else
+    echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+fi
 echo ""
 echo "📝 Zapisz te dane w bezpiecznym miejscu:"
 echo "   NEXTAUTH_SECRET: $NEXTAUTH_SECRET"

@@ -13,7 +13,7 @@ APP_NAME="littlelink"
 echo "--- LittleLink Setup ---"
 
 # Required: DOMAIN
-if [ -z "$DOMAIN" ]; then
+if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ]; then
     echo "Brak wymaganej zmiennej: DOMAIN"
     echo "   Uzycie: DOMAIN=bio.example.com ./install.sh"
     exit 1
