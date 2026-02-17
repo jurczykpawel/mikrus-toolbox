@@ -184,21 +184,33 @@ Header `X-FastCGI-Cache` w odpowiedzi HTTP pokazuje status: `HIT`, `MISS`, `BYPA
 
 ### Dlaczego Nginx, a nie LiteSpeed?
 
-Wiele polskich hostingów reklamuje się "LiteSpeed Cache". To brzmi jak przewaga, ale w praktyce:
+Wiele polskich hostingów reklamuje się "LiteSpeed Cache". To brzmi jak przewaga, ale niezależne benchmarki pokazują co innego:
 
-**Obie technologie robią dokładnie to samo** — serwują stronę z cache na poziomie serwera, bez dotykania PHP i bazy danych. Różnica w TTFB jest w granicach szumu pomiarowego.
+**Z włączonym cache obie technologie dają praktycznie identyczny TTFB.** Obie serwują stronę z cache na poziomie serwera, bez dotykania PHP i bazy danych.
+
+Niezależne testy (nie marketing hostingów):
+
+| Test | Nginx | OpenLiteSpeed | Różnica | Źródło |
+|---|---|---|---|---|
+| Cached TTFB | 67ms | 68ms | **1ms** | [WPJohnny](https://wpjohnny.com/nginx-vs-openlitespeed-speed-comparison/) |
+| Throughput (cached) | 26 880 hits | 26 748 hits | **0.5%** | [RunCloud](https://runcloud.io/blog/openlitespeed-vs-nginx-vs-apache) |
+| Uncached req/sec | **40 req/s** | 23 req/s | **Nginx 1.75x szybszy** | [WPJohnny](https://wpjohnny.com/litespeed-vs-nginx/) |
+
+Cytat z WPJohnny (niezależny konsultant WP): *"OpenLiteSpeed and NGINX are just about equal in performance with caching on. Anybody claiming one is incredibly superior than the other is either biased or hasn't tested them side-by-side."*
+
+Co więcej — **na stronach bez cache (MISS) Nginx + PHP-FPM jest szybszy** niż OpenLiteSpeed.
 
 | | Nginx FastCGI cache (my) | LiteSpeed LSCache |
 |---|---|---|
 | TTFB (cache HIT) | ~200ms | ~200ms |
-| Mechanizm | Nginx serwuje z dysku/RAM | LiteSpeed serwuje z dysku/RAM |
+| TTFB (cache MISS) | **szybszy** (PHP-FPM) | wolniejszy |
 | Auto-purge | Nginx Helper (plugin) | LSCache (plugin) |
 | Redis Object Cache | tak (bundled) | tak (jeśli hosting daje) |
 | Gzip | tak (-82% transferu) | tak |
 | WooCommerce rules | auto (skip_cache) | ręczna konfig. w plugin |
 | Breakdance/Elementor fix | auto (session.cache_limiter) | ręczna konfig. |
 
-Hostingi chwalą się LiteSpeed, bo mają go w infrastrukturze. My mamy Nginx z FastCGI cache — **ten sam efekt, te same czasy odpowiedzi**. "LiteSpeed" to nazwa serwera, nie magiczne przyspieszenie.
+Hostingi chwalą się LiteSpeed, bo mają go w infrastrukturze. My mamy Nginx z FastCGI cache — **ten sam TTFB na cached, szybszy na uncached**. "LiteSpeed" to nazwa serwera, nie magiczne przyspieszenie.
 
 ## Dodatkowa optymalizacja (ręczna)
 
