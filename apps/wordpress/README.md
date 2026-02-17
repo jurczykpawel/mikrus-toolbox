@@ -46,16 +46,37 @@ Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
 **Porównanie cenowe:** Kinsta od $35/mies, WP Engine od $25/mies, Redis addon u Kinsta $100/mies.
 Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
 
-### Benchmark: Mikrus vs typowy shared hosting
+### Benchmark: TTFB
 
 | Metryka | Shared hosting | Mikrus WP |
 |---|---|---|
 | TTFB (strona główna) | 800-3000ms | **~200ms** (cache HIT) |
 | TTFB (cold, bez cache) | 2000-5000ms | **300-400ms** |
 | TTFB z Breakdance/Elementor | 2000-5000ms (session kill cache) | **~200ms** (session bypass) |
-| Redis Object Cache | brak lub płatny addon | wbudowany |
-| Auto cache purge | brak / plugin | Nginx Helper (auto) |
-| WooCommerce + cache | ręczna konfiguracja | auto (skip rules) |
+
+### Porównanie z polskimi hostingami WordPress
+
+Ceny odnowienia (nie promocyjne pierwszego roku). Plany porównywalne z 1 GB RAM.
+
+| Hosting | Cena/rok | RAM | Redis | Server cache | Auto-purge | WooCommerce rules |
+|---|---|---|---|---|---|---|
+| **Mikrus 2.1 + Toolbox** | **75 PLN** | 1 GB | wbudowany | FastCGI 24h | Nginx Helper | auto |
+| Smarthost Pro Mini | ~170 PLN | 1 GB | tak | LSCache | plugin | ręcznie |
+| LH.pl Orange | 199 PLN* | 1 GB | **brak** | **brak** | brak | brak |
+| MyDevil MD1 | 200 PLN | 1 GB | ręcznie (SSH) | **brak** | brak | brak |
+| dhosting EWH | 359 PLN* | auto-scale | tak | LSCache | plugin | ręcznie |
+| cyber_Folks wp_IN! | 389 PLN* | 1 GB | tak | LSCache | plugin | ręcznie |
+| nazwa.pl WP Start | 360 PLN* | 8 GB | b/d | b/d | b/d | b/d |
+| Zenbox Firma 10k | 648 PLN | b/d | **brak** | LSCache | plugin | ręcznie |
+
+\* cena netto (bez VAT 23%)
+
+**Co Mikrus + Toolbox daje za 75 PLN/rok, a czego brak na shared hostingu:**
+- Redis Object Cache — u LH.pl dopiero od planu Mango (399 PLN/rok), u Kinsta addon $100/mies
+- Nginx FastCGI cache z auto-purge — na shared hostingach trzeba zainstalować i skonfigurować LiteSpeed Cache plugin ręcznie
+- WooCommerce skip rules — na shared hostingach trzeba kupić WP Rocket (~$59/rok) albo konfigurować ręcznie
+- Breakdance/Elementor session fix — na żadnym shared hostingu, trzeba wiedzieć co ustawić
+- Pełny root + Docker — na shared hostingach niedostępny
 
 ## Instalacja
 
