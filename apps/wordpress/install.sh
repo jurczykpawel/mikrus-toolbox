@@ -162,7 +162,7 @@ echo ""
 # 3. PRZYGOTOWANIE KATALOGÓW
 # =============================================================================
 
-sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache/fastcgi_temp,redis-data}
+sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache,redis-data}
 cd "$STACK_DIR"
 
 # Zapisz Redis config dla wp-init.sh
@@ -346,6 +346,7 @@ http {
     # FastCGI cache (24h dla stron, skip admin/login/API)
     fastcgi_cache_path /var/cache/nginx levels=1:2
         keys_zone=wordpress:10m max_size=256m inactive=24h;
+    fastcgi_temp_path /tmp/nginx_fastcgi_temp;
     fastcgi_cache_key "$scheme$request_method$host$request_uri";
     fastcgi_cache_use_stale error timeout updating http_500 http_503;
     fastcgi_cache_lock on;
@@ -570,7 +571,7 @@ $REDIS_SERVICE
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD", "wget", "-qO/dev/null", "--spider", "http://localhost/"]
+      test: ["CMD", "wget", "-qO/dev/null", "--spider", "http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
