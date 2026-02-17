@@ -129,13 +129,13 @@ else
         elif command -v mariadb &>/dev/null; then
             mariadb -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" -sN 2>/dev/null
         elif command -v docker &>/dev/null; then
-            docker run --rm mariadb:lts mariadb -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" -sN 2>/dev/null
+            docker run --rm mariadb:lts mariadb --skip-ssl -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" -sN 2>/dev/null
         else
             return 1
         fi
     }
 
-    WP_TABLE_COUNT=$(_db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name LIKE 'wp_%'")
+    WP_TABLE_COUNT=$(_db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name LIKE 'wp_%'") || true
     if [ -n "$WP_TABLE_COUNT" ] && [ "$WP_TABLE_COUNT" -gt 0 ]; then
         echo ""
         echo "⚠️  Baza danych '$DB_NAME' zawiera $WP_TABLE_COUNT tabel WordPress!"
@@ -580,20 +580,35 @@ cat <<'INITEOF' | sudo tee "$STACK_DIR/wp-init.sh" > /dev/null
 #!/bin/bash
 # WordPress Performance Init — automatycznie uruchamiany przez install.sh
 # Idempotentny — bezpieczne ponowne uruchomienie
-# Dodaje: HTTPS fix, WP-Cron, limity rewizji, memory limit, Redis
+# Generuje wp-config-performance.php + dodaje require_once do wp-config.php
+# Redis Object Cache plugin via WP-CLI
 
 cd "$(dirname "$0")"
 
 QUIET=false
 RETRY_MODE=false
+RETRY_COUNT_FILE="/opt/stacks/wordpress/.wp-init-retries"
+MAX_RETRIES=30
+
 if [ "$1" = "--retry" ]; then
     QUIET=true
     RETRY_MODE=true
+    # Licznik prób — usuń crona po MAX_RETRIES (30 min)
+    COUNT=0
+    [ -f "$RETRY_COUNT_FILE" ] && COUNT=$(cat "$RETRY_COUNT_FILE")
+    COUNT=$((COUNT + 1))
+    echo "$COUNT" > "$RETRY_COUNT_FILE"
+    if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
+        crontab -l 2>/dev/null | grep -v "wp-init-retry" | crontab -
+        rm -f "$RETRY_COUNT_FILE"
+        exit 0
+    fi
 fi
 
 log() { [ "$QUIET" = false ] && echo "$@"; }
 
 WP_CONFIG="/var/www/html/wp-config.php"
+PERF_CONFIG="/var/www/html/wp-config-performance.php"
 CONTAINER=$(docker compose ps -q wordpress 2>/dev/null | head -1)
 
 if [ -z "$CONTAINER" ]; then
@@ -601,12 +616,11 @@ if [ -z "$CONTAINER" ]; then
     exit 1
 fi
 
-# --- Część 1: wp-config.php (nie wymaga tabel w DB) ---
+# --- Część 1: wp-config-performance.php (nie wymaga tabel w DB) ---
 
 if ! docker exec "$CONTAINER" test -f "$WP_CONFIG"; then
     log "⏳ WordPress jeszcze nie wygenerował wp-config.php"
     log "   Otwórz stronę w przeglądarce, a optymalizacje zastosują się automatycznie."
-    # Dodaj retry cron jeśli jeszcze nie ma
     if ! crontab -l 2>/dev/null | grep -q "wp-init-retry"; then
         RETRY="* * * * * /opt/stacks/wordpress/wp-init.sh --retry > /dev/null 2>&1 # wp-init-retry"
         (crontab -l 2>/dev/null; echo "$RETRY") | crontab -
@@ -617,60 +631,7 @@ fi
 
 log "🔧 Optymalizuję wp-config.php..."
 
-# 1. Fix HTTPS za reverse proxy (Cytrus/Caddy/Cloudflare)
-if ! docker exec "$CONTAINER" grep -q "HTTP_X_FORWARDED_PROTO" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i '/^<?php/a\
-// HTTPS behind reverse proxy (Cytrus/Caddy/Cloudflare)\
-if (isset($_SERVER["HTTP_X_FORWARDED_PROTO"]) \&\& $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https") {\
-    $_SERVER["HTTPS"] = "on";\
-}' "$WP_CONFIG"
-    log "   ✅ Fix HTTPS za reverse proxy"
-fi
-
-# 2. Wyłącz domyślny wp-cron
-if ! docker exec "$CONTAINER" grep -q "DISABLE_WP_CRON" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('DISABLE_WP_CRON', true);" "$WP_CONFIG"
-    log "   ✅ WP-Cron wyłączony (systemowy cron co 5 min)"
-fi
-
-# 3. Limit rewizji (mniejsza baza)
-if ! docker exec "$CONTAINER" grep -q "WP_POST_REVISIONS" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('WP_POST_REVISIONS', 5);" "$WP_CONFIG"
-    log "   ✅ Limit rewizji: 5 (mniejsza baza)"
-fi
-
-# 4. Auto-czyszczenie kosza
-if ! docker exec "$CONTAINER" grep -q "EMPTY_TRASH_DAYS" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('EMPTY_TRASH_DAYS', 14);" "$WP_CONFIG"
-    log "   ✅ Auto-czyszczenie kosza: 14 dni"
-fi
-
-# 5. WordPress memory limit
-if ! docker exec "$CONTAINER" grep -q "WP_MEMORY_LIMIT" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('WP_MEMORY_LIMIT', '256M');\
-define('WP_MAX_MEMORY_LIMIT', '512M');" "$WP_CONFIG"
-    log "   ✅ WP Memory Limit: 256M (admin: 512M)"
-fi
-
-# 6. Zwiększ interwał autosave (mniej zapisów do DB)
-if ! docker exec "$CONTAINER" grep -q "AUTOSAVE_INTERVAL" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('AUTOSAVE_INTERVAL', 300);" "$WP_CONFIG"
-    log "   ✅ Autosave: co 5 min (zamiast 60s)"
-fi
-
-# 7. Zablokuj edycję plików z panelu WP (security)
-if ! docker exec "$CONTAINER" grep -q "DISALLOW_FILE_EDIT" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-define('DISALLOW_FILE_EDIT', true);" "$WP_CONFIG"
-    log "   ✅ Edycja plików z panelu WP zablokowana"
-fi
-
-# 8. Redis Object Cache - wp-config.php defines
+# Redis config
 REDIS_HOST="redis"
 if [ -f "/opt/stacks/wordpress/.redis-host" ]; then
     REDIS_HOST=$(cat /opt/stacks/wordpress/.redis-host)
@@ -685,18 +646,47 @@ else
     WP_REDIS_ADDR="$REDIS_HOST"
 fi
 
-if ! docker exec "$CONTAINER" grep -q "WP_REDIS_HOST" "$WP_CONFIG"; then
-    WP_REDIS_DEFINES="define('WP_REDIS_HOST', '$WP_REDIS_ADDR');\
-define('WP_REDIS_PORT', 6379);"
-    if [ -n "$REDIS_PASS" ]; then
-        WP_REDIS_DEFINES="$WP_REDIS_DEFINES\
-define('WP_REDIS_PASSWORD', '$REDIS_PASS');"
-    fi
-    WP_REDIS_DEFINES="$WP_REDIS_DEFINES\
-define('WP_CACHE', true);"
-    docker exec "$CONTAINER" sed -i "/^<?php/a\\
-$WP_REDIS_DEFINES" "$WP_CONFIG"
-    log "   ✅ Redis config (WP_REDIS_HOST=$WP_REDIS_ADDR, WP_CACHE=true)"
+REDIS_PASS_LINE=""
+if [ -n "$REDIS_PASS" ]; then
+    REDIS_PASS_LINE="define('WP_REDIS_PASSWORD', '$REDIS_PASS');"
+fi
+
+# Generuj wp-config-performance.php (zawsze nadpisuje — idempotentne)
+cat <<PERFEOF | docker exec -i "$CONTAINER" tee "$PERF_CONFIG" > /dev/null
+<?php
+// Mikrus Toolbox — WordPress Performance Config
+// Wygenerowane przez wp-init.sh — NIE edytuj ręcznie
+
+// HTTPS behind reverse proxy (Cytrus/Caddy/Cloudflare)
+if (isset(\$_SERVER["HTTP_X_FORWARDED_PROTO"]) && \$_SERVER["HTTP_X_FORWARDED_PROTO"] === "https") {
+    \$_SERVER["HTTPS"] = "on";
+}
+
+// Performance & Security
+define('DISABLE_WP_CRON', true);
+define('WP_POST_REVISIONS', 5);
+define('EMPTY_TRASH_DAYS', 14);
+define('WP_MEMORY_LIMIT', '256M');
+define('WP_MAX_MEMORY_LIMIT', '512M');
+define('AUTOSAVE_INTERVAL', 300);
+define('DISALLOW_FILE_EDIT', true);
+
+// Redis Object Cache
+define('WP_REDIS_HOST', '$WP_REDIS_ADDR');
+define('WP_REDIS_PORT', 6379);
+${REDIS_PASS_LINE}
+define('WP_CACHE', true);
+PERFEOF
+
+docker exec "$CONTAINER" chown www-data:www-data "$PERF_CONFIG"
+log "   ✅ Wygenerowano wp-config-performance.php"
+
+# Dodaj require_once do wp-config.php (jednorazowo)
+if ! docker exec "$CONTAINER" grep -q "wp-config-performance.php" "$WP_CONFIG"; then
+    docker exec "$CONTAINER" sed -i '/^<?php/a\require_once __DIR__ . "/wp-config-performance.php";' "$WP_CONFIG"
+    log "   ✅ Dodano require_once do wp-config.php"
+else
+    log "   ℹ️  require_once już istnieje w wp-config.php"
 fi
 
 # --- Część 2: WP-CLI (wymaga tabel w DB — może nie zadziałać od razu) ---
@@ -737,6 +727,7 @@ fi
 # Usuń retry cron jeśli Redis OK
 if [ "$REDIS_OK" = true ] && crontab -l 2>/dev/null | grep -q "wp-init-retry"; then
     crontab -l 2>/dev/null | grep -v "wp-init-retry" | crontab -
+    rm -f "$RETRY_COUNT_FILE"
     log "   ✅ Retry cron usunięty (Redis działa)"
 fi
 
