@@ -79,6 +79,7 @@ Ceny odnowienia (nie promocyjne pierwszego roku). Plany porównywalne z 1 GB RAM
 - Nielimitowany transfer — np. cyber_Folks wp_START! (328 PLN/rok) ma limit 250 GB/mies
 - Darmowy SSL (Cytrus/Caddy) — u cyber_Folks SSL to dodatkowe 29 PLN/rok
 - Pełny root + Docker — na shared hostingach niedostępny
+- **Serwer, nie tylko hosting WP** — na tym samym Mikrusie obok WordPressa postawisz strony statyczne, n8n, Uptime Kuma, Vaultwarden, NocoDB i [25 innych aplikacji](../../AGENTS.md). Shared hosting = tylko WordPress
 
 ## Instalacja
 
