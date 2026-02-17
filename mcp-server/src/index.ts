@@ -33,6 +33,10 @@ import {
   setupBackupTool,
   handleSetupBackup,
 } from "./tools/setup-backup.js";
+import {
+  setupGateflowTool,
+  handleSetupGateflow,
+} from "./tools/setup-gateflow.js";
 
 const server = new Server(
   { name: "mikrus-toolbox", version: "0.1.0" },
@@ -49,6 +53,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     serverStatusTool,
     setupDomainTool,
     setupBackupTool,
+    setupGateflowTool,
   ],
 }));
 
@@ -72,6 +77,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return handleSetupDomain(args ?? {});
     case "setup_backup":
       return handleSetupBackup(args ?? {});
+    case "setup_gateflow_config":
+      return handleSetupGateflow(args ?? {});
     default:
       return {
         content: [{ type: "text", text: `Unknown tool: ${name}` }],

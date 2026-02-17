@@ -118,6 +118,39 @@ Toolbox jest automatycznie instalowany na serwerze (git clone z GitHub) jeśli j
 **Post-install WordPress** — `wp-init.sh` uruchamia się automatycznie podczas instalacji.
 Jedyny ręczny krok: otworzyć stronę w przeglądarce → kreator WordPress.
 
+### GateFlow (flagowy produkt)
+
+Platforma sprzedaży produktów cyfrowych (alternatywa Gumroad/EasyCart). Nie używa Dockera — działa na Bun + PM2 (Next.js standalone).
+
+**Wymagania:** Supabase (darmowe konto), opcjonalnie Stripe (płatności).
+
+**MCP deployment** — pełny flow bez wklejania sekretów:
+```
+# Krok 1: Agent wywołuje setup_gateflow_config() → otwiera przeglądarkę do logowania Supabase
+# Krok 2: User podaje jednorazowy kod weryfikacyjny (8 znaków, NIE jest sekretem)
+# Krok 3: Agent wywołuje setup_gateflow_config(verification_code="ABCD1234") → pobiera projekty
+# Krok 4: User wybiera projekt → agent wywołuje setup_gateflow_config(project_ref="xxx")
+#          → klucze pobrane automatycznie i zapisane do ~/.config/gateflow/deploy-config.env
+# Krok 5: Agent wywołuje deploy_app(app_name="gateflow") → config ładowany z pliku
+```
+
+**BEZPIECZEŃSTWO:** NIE proś użytkownika o wklejanie kluczy (service_role, Stripe SK) w rozmowie — trafiłyby przez API. Używaj `setup_gateflow_config` — sekrety nigdy nie trafiają do rozmowy.
+
+**CLI deployment:**
+```bash
+# Interaktywny (prowadzi za rączkę)
+./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=auto
+
+# Automatyczny (wymaga wcześniejszego setup-gateflow-config.sh)
+./local/deploy.sh gateflow --ssh=mikrus --yes
+```
+
+**Po instalacji:**
+- Pierwszy zarejestrowany użytkownik = admin
+- Stripe webhooks: `https://DOMENA/api/webhooks/stripe` (events: checkout.session.completed, payment_intent.succeeded)
+- Turnstile CAPTCHA: opcjonalny, `./local/setup-turnstile.sh DOMENA SSH_ALIAS`
+- Multi-instance: każda domena = osobny katalog (`/opt/stacks/gateflow-{subdomena}/`)
+
 ## Synchronizacja plików (sync.sh)
 
 ```bash
