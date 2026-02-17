@@ -6,7 +6,7 @@ Najpopularniejszy CMS na świecie, zoptymalizowany pod małe serwery VPS.
 
 ## Co jest w środku?
 
-Stack wydajnościowy, który pobija managed hostingi za $10-30/mies:
+Stack wydajnościowy — to co dostajesz u Kinsta ($35/mies) czy WP Engine ($25/mies):
 
 ```
 Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
@@ -17,34 +17,34 @@ Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
 
 ### Optymalizacje (automatyczne, zero konfiguracji)
 
-| Optymalizacja | Co daje | Cena u konkurencji |
+| Optymalizacja | Co daje | Na managed hostingu |
 |---|---|---|
-| Nginx FastCGI cache + auto-purge | Cached strony ~200ms TTFB (bez PHP i DB) | $10-20/mies (Kinsta, WP Engine) |
-| Redis Object Cache (drop-in) | -70% zapytań do DB | $10-30/mies (Redis addon) |
-| PHP-FPM alpine (nie Apache) | -35MB RAM, mniejszy obraz | standard na drogich hostach |
-| OPcache + JIT | 2-3x szybszy PHP | standard na drogich hostach |
+| Nginx FastCGI cache + auto-purge | Cached strony ~200ms TTFB (bez PHP i DB) | wliczone w plan $25-35/mies |
+| Redis Object Cache (drop-in) | -70% zapytań do DB | Kinsta: addon $100/mies (!) |
+| PHP-FPM alpine (nie Apache) | -35MB RAM, mniejszy obraz | standard |
+| OPcache + JIT | 2-3x szybszy PHP | standard |
 | Nginx Helper plugin (auto-purge) | Cache czyszczony przy edycji treści | wbudowane w Kinsta/WP Engine |
-| WooCommerce-aware cache rules | Koszyk/checkout omija cache, reszta cachowana | premium plugin ($49/rok) |
-| session.cache_limiter bypass | Cache działa z Breakdance/Elementor (session_start fix) | know-how za $$$ |
-| fastcgi_ignore_headers | Nginx cachuje mimo Set-Cookie z page builderów | know-how za $$$ |
-| FastCGI cache lock | Ochrona przed thundering herd (1 req do PHP) | Cloudflare Enterprise |
-| Gzip compression | -60-80% transferu | free |
+| WooCommerce-aware cache rules | Koszyk/checkout omija cache, reszta cachowana | WP Rocket ~$59/rok |
+| session.cache_limiter bypass | Cache działa z Breakdance/Elementor (session_start fix) | ręczna konfiguracja |
+| fastcgi_ignore_headers | Nginx cachuje mimo Set-Cookie z page builderów | ręczna konfiguracja |
+| FastCGI cache lock | Ochrona przed thundering herd (1 req do PHP) | Nginx — darmowe, ale trzeba umieć |
+| Gzip compression | -60-80% transferu | standard |
 | Open file cache | -80% disk I/O na statycznych plikach | standard |
-| Realpath cache 4MB | -30% response time (mniej stat() calls) | know-how |
+| Realpath cache 4MB | -30% response time (mniej stat() calls) | ręczna konfiguracja |
 | FPM ondemand + RAM tuning | Dynamiczny profil na podstawie RAM serwera | managed hosting |
-| tmpfs /tmp | 20x szybsze I/O dla temp files | know-how |
-| Security headers | X-Frame, X-Content-Type, Referrer-Policy, Permissions-Policy | standard |
-| Rate limiting wp-login | Ochrona brute force bez obciążania PHP | plugin ($) |
-| Blokada xmlrpc.php | Zamknięty wektor DDoS | plugin ($) |
-| Blokada user enumeration | ?author=N → 403 | plugin ($) |
-| WP-Cron → system cron | Brak opóźnień dla odwiedzających | know-how |
-| Autosave co 5 min | -80% zapisów do DB (domyślne 60s) | know-how |
-| Blokada wrażliwych plików | wp-config.php, .env, uploads/*.php | plugin ($) |
+| tmpfs /tmp | 20x szybsze I/O dla temp files | ręczna konfiguracja |
+| Security headers | X-Frame, X-Content-Type, Referrer-Policy | standard |
+| Rate limiting wp-login | Ochrona brute force bez obciążania PHP | plugin lub ręcznie |
+| Blokada xmlrpc.php | Zamknięty wektor DDoS | plugin lub ręcznie |
+| Blokada user enumeration | ?author=N → 403 | plugin lub ręcznie |
+| WP-Cron → system cron | Brak opóźnień dla odwiedzających | ręczna konfiguracja |
+| Autosave co 5 min | -80% zapisów do DB (domyślne 60s) | ręczna konfiguracja |
+| Blokada wrażliwych plików | wp-config.php, .env, uploads/*.php | plugin lub ręcznie |
 | no-new-privileges | Kontener nie eskaluje uprawnień | Docker know-how |
 | Log rotation | Logi nie zapchają dysku (max 30MB) | standard |
 
-**Łączna wartość tych optymalizacji: $20-50/mies na managed hostingu.**
-Na Mikrusie: **$2.50/mies** (Mikrus 2.1, 1GB RAM).
+**Porównanie cenowe:** Kinsta od $35/mies, WP Engine od $25/mies, Redis addon u Kinsta $100/mies.
+Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
 
 ### Benchmark: Mikrus vs typowy shared hosting
 
@@ -53,7 +53,7 @@ Na Mikrusie: **$2.50/mies** (Mikrus 2.1, 1GB RAM).
 | TTFB (strona główna) | 800-3000ms | **~200ms** (cache HIT) |
 | TTFB (cold, bez cache) | 2000-5000ms | **300-400ms** |
 | TTFB z Breakdance/Elementor | 2000-5000ms (session kill cache) | **~200ms** (session bypass) |
-| Redis Object Cache | brak / addon $10/mies | wbudowany |
+| Redis Object Cache | brak lub płatny addon | wbudowany |
 | Auto cache purge | brak / plugin | Nginx Helper (auto) |
 | WooCommerce + cache | ręczna konfiguracja | auto (skip rules) |
 
