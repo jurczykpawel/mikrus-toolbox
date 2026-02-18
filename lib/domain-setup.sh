@@ -93,6 +93,18 @@ ask_domain() {
             return $?
         fi
 
+        # Walidacja: dla Cloudflare sprawdź czy root domena jest w konfiguracji
+        if [ "$DOMAIN_TYPE" = "cloudflare" ] && [ -f "$CLOUDFLARE_CONFIG" ]; then
+            local CLI_ROOT=$(echo "$DOMAIN" | rev | cut -d. -f1-2 | rev)
+            if ! grep -q "^${CLI_ROOT}=" "$CLOUDFLARE_CONFIG"; then
+                local AVAILABLE=$(grep -v "^#" "$CLOUDFLARE_CONFIG" | grep -v "API_TOKEN" | grep "=" | cut -d= -f1 | tr '\n' ' ')
+                echo -e "${RED}❌ Domena '$CLI_ROOT' — Twój token Cloudflare nie ma dostępu do tej domeny!${NC}" >&2
+                echo "   Dostępne domeny: $AVAILABLE" >&2
+                echo "   Jeśli chcesz dodać tę domenę, uruchom ponownie: ./local/setup-cloudflare.sh" >&2
+                return 1
+            fi
+        fi
+
         echo -e "${GREEN}✅ Domena: $DOMAIN (typ: $DOMAIN_TYPE)${NC}"
         return 0
     fi
@@ -269,8 +281,24 @@ ask_domain_cloudflare() {
             local SELECTED_DOMAIN="${DOMAINS[$((CHOICE-1))]}"
             FULL_DOMAIN="$APP_NAME.$SELECTED_DOMAIN"
         elif [ -n "$CHOICE" ]; then
-            # Traktuj jako domenę wpisaną ręcznie
+            # Traktuj jako domenę wpisaną ręcznie - waliduj root domenę
             FULL_DOMAIN="$CHOICE"
+            local INPUT_ROOT=$(echo "$FULL_DOMAIN" | rev | cut -d. -f1-2 | rev)
+            local DOMAIN_FOUND=false
+            for domain in "${DOMAINS[@]}"; do
+                if [ "$domain" = "$INPUT_ROOT" ]; then
+                    DOMAIN_FOUND=true
+                    break
+                fi
+            done
+            if [ "$DOMAIN_FOUND" = false ]; then
+                echo ""
+                echo -e "${RED}❌ Domena '$INPUT_ROOT' — Twój token Cloudflare nie ma dostępu do tej domeny!${NC}"
+                echo "   Dostępne domeny: ${DOMAINS[*]}"
+                echo ""
+                echo "   Jeśli chcesz dodać tę domenę, uruchom ponownie: ./local/setup-cloudflare.sh"
+                return 1
+            fi
         else
             echo -e "${RED}❌ Nie podano domeny${NC}"
             return 1
@@ -290,6 +318,24 @@ ask_domain_cloudflare() {
 
     if [ -z "$FULL_DOMAIN" ]; then
         echo -e "${RED}❌ Domena nie może być pusta${NC}"
+        return 1
+    fi
+
+    # Walidacja: root domena musi być w konfiguracji Cloudflare
+    local INPUT_ROOT=$(echo "$FULL_DOMAIN" | rev | cut -d. -f1-2 | rev)
+    local DOMAIN_FOUND=false
+    for domain in "${DOMAINS[@]}"; do
+        if [ "$domain" = "$INPUT_ROOT" ]; then
+            DOMAIN_FOUND=true
+            break
+        fi
+    done
+    if [ "$DOMAIN_FOUND" = false ]; then
+        echo ""
+        echo -e "${RED}❌ Domena '$INPUT_ROOT' — Twój token Cloudflare nie ma dostępu do tej domeny!${NC}"
+        echo "   Dostępne domeny: ${DOMAINS[*]}"
+        echo ""
+        echo "   Jeśli chcesz dodać tę domenę, uruchom ponownie: ./local/setup-cloudflare.sh"
         return 1
     fi
 
