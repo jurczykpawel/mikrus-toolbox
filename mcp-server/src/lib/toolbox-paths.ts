@@ -1,18 +1,14 @@
 import { execFile } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { existsSync } from "node:fs";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-// From src/lib/ or dist/lib/ → mcp-server/ → repo root
-const TOOLBOX_ROOT = resolve(__dirname, "..", "..", "..");
+import { resolveRepoRoot } from "./repo.js";
 
 export function localScript(name: string): string {
-  return join(TOOLBOX_ROOT, "local", name);
+  return join(resolveRepoRoot(), "local", name);
 }
 
 export function systemScript(name: string): string {
-  return join(TOOLBOX_ROOT, "system", name);
+  return join(resolveRepoRoot(), "system", name);
 }
 
 export function hasToolboxScripts(): boolean {

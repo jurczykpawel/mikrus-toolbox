@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "tsx test-mcp.ts",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
@@ -35,7 +36,8 @@
   },
   "files": [
     "dist/**/*",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "license": "MIT"
 }
