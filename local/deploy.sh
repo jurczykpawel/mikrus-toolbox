@@ -1001,8 +1001,8 @@ NEXT_PUBLIC_BASE_URL=https://$DOMAIN
 DISABLE_HSTS=true
 DOMAIN_EOF
                 # Skopiuj do standalone
-                if [ -d '.next/standalone/admin-panel' ]; then
-                    cp .env.local .next/standalone/admin-panel/.env.local
+                if [ -d '.next/standalone' ]; then
+                    cp .env.local .next/standalone/.env.local
                 fi
             " 2>/dev/null || true
 
@@ -1012,7 +1012,7 @@ DOMAIN_EOF
             echo "🔄 Restartuję GateFlow..."
             server_exec "
                 export PATH=\"\$HOME/.bun/bin:\$PATH\"
-                cd /opt/stacks/gateflow/admin-panel/.next/standalone/admin-panel
+                cd /opt/stacks/gateflow/admin-panel/.next/standalone
                 pm2 delete gateflow 2>/dev/null || true
                 set -a && source .env.local && set +a
                 export PORT=\${PORT:-3333}

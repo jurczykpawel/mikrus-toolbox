@@ -95,7 +95,7 @@ if [ ! -d "$INSTALL_DIR/admin-panel" ]; then
 fi
 
 ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
-STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo -e "${RED}❌ Brak pliku .env.local${NC}"
@@ -209,7 +209,7 @@ else
 fi
 
 # Skopiuj do standalone (zawsze, zarówno w update jak i restart)
-STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone"
 if [ -d "$STANDALONE_DIR" ]; then
     echo "   Aktualizuję konfigurację w standalone..."
     cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"

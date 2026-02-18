@@ -353,7 +353,7 @@ echo ""
 
 echo "📋 Konfiguruję standalone server..."
 
-STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone"
 
 if [ -d "$STANDALONE_DIR" ]; then
     # Kopiuj konfigurację

@@ -470,7 +470,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
         fi
 
         ENV_FILE="$GATEFLOW_DIR/admin-panel/.env.local"
-        STANDALONE_ENV="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel/.env.local"
+        STANDALONE_ENV="$GATEFLOW_DIR/admin-panel/.next/standalone/.env.local"
 
         # Sprawdź czy istnieje
         if server_exec "test -f $ENV_FILE" 2>/dev/null; then
@@ -485,7 +485,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
             # Restart PM2 z przeładowaniem zmiennych środowiskowych
             echo "🔄 Restartuję GateFlow..."
 
-            STANDALONE_DIR="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel"
+            STANDALONE_DIR="$GATEFLOW_DIR/admin-panel/.next/standalone"
             # WAŻNE: użyj --interpreter node, NIE 'node server.js' w cudzysłowach (bash nie dziedziczy env)
             RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME=\${HOSTNAME:-::} && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
 
