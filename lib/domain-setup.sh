@@ -599,8 +599,50 @@ wait_for_domain() {
 
         if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
             echo ""
-            echo -e "${YELLOW}⚠️  Timeout - domena może jeszcze nie być gotowa${NC}"
-            echo "   ⏳ Propagacja DNS może zająć do 5 minut."
+            echo -e "${YELLOW}⚠️  Timeout - domena jeszcze nie odpowiada${NC}"
+            echo ""
+
+            # Diagnostyka DNS
+            echo "🔍 Diagnostyka:"
+            local DIG_RESULT=""
+            if command -v dig &>/dev/null; then
+                DIG_RESULT=$(dig +short "$DOMAIN" 2>/dev/null)
+            elif command -v nslookup &>/dev/null; then
+                DIG_RESULT=$(nslookup "$DOMAIN" 2>/dev/null | grep -A1 "Name:" | grep "Address" | awk '{print $2}')
+            fi
+
+            if [ -z "$DIG_RESULT" ]; then
+                echo -e "   ${RED}✗ DNS: brak rekordu — domena nie resolwuje się${NC}"
+                echo "   Sprawdź panel Cloudflare lub uruchom ponownie: ./local/dns-add.sh $DOMAIN"
+            else
+                echo -e "   ${GREEN}✓ DNS: $DOMAIN → $DIG_RESULT${NC}"
+
+                # Porównaj z IP serwera
+                local EXPECTED_IP=""
+                if [ "$DOMAIN_TYPE" = "cloudflare" ]; then
+                    # Cloudflare proxy — dig zwraca IP Cloudflare, nie serwera. To OK.
+                    echo "   ℹ️  Cloudflare proxy — IP powyżej to edge Cloudflare (poprawne)"
+                elif [ -n "${SSH_ALIAS:-}" ]; then
+                    EXPECTED_IP=$(server_exec "curl -s4 ifconfig.me 2>/dev/null || hostname -I | awk '{print \$1}'" 2>/dev/null)
+                    if [ -n "$EXPECTED_IP" ] && ! echo "$DIG_RESULT" | grep -q "$EXPECTED_IP"; then
+                        echo -e "   ${RED}✗ IP serwera: $EXPECTED_IP — nie zgadza się z DNS!${NC}"
+                    fi
+                fi
+
+                # Sprawdź HTTP
+                local DIAG_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://$DOMAIN" 2>/dev/null || echo "000")
+                if [ "$DIAG_HTTP" = "000" ]; then
+                    echo -e "   ${RED}✗ HTTPS: brak połączenia — certyfikat SSL może nie być jeszcze gotowy${NC}"
+                elif [ "$DIAG_HTTP" -ge 500 ]; then
+                    echo -e "   ${RED}✗ HTTPS: HTTP $DIAG_HTTP — usługa zwraca błąd${NC}"
+                elif [ "$DIAG_HTTP" = "521" ] || [ "$DIAG_HTTP" = "522" ] || [ "$DIAG_HTTP" = "523" ]; then
+                    echo -e "   ${RED}✗ HTTPS: HTTP $DIAG_HTTP — Cloudflare nie może połączyć się z serwerem${NC}"
+                else
+                    echo -e "   ${YELLOW}~ HTTPS: HTTP $DIAG_HTTP${NC}"
+                fi
+            fi
+
+            echo ""
             echo "   Sprawdź za chwilę: https://$DOMAIN"
             return 1
         fi
