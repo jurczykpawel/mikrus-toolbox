@@ -437,6 +437,12 @@ http {
     # Rate limiting - ochrona przed brute force (bez obciążania PHP)
     limit_req_zone $binary_remote_addr zone=wp_login:10m rate=1r/s;
 
+    # WebP: serwuj skonwertowane obrazy z uploads-webpc/ gdy przeglądarka obsługuje WebP
+    map \$http_accept \$webp_suffix {
+        default "";
+        "~*webp" ".webp";
+    }
+
     server {
         listen 80;
         server_name _;
@@ -449,8 +455,17 @@ http {
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
+        # WebP: obrazy z wp-content — serwuj WebP wersję jeśli istnieje
+        location ~* /wp-content/.+\.(jpe?g|png|gif)$ {
+            add_header Vary Accept;
+            expires 365d;
+            add_header Cache-Control "public, immutable";
+            access_log off;
+            try_files /wp-content/uploads-webpc/\$uri\$webp_suffix \$uri =404;
+        }
+
         # Static files - cache 1 year, serwowane bez PHP
-        location ~* \.(jpg|jpeg|png|gif|ico|webp|avif|css|js|svg|woff|woff2|ttf|eot)$ {
+        location ~* \.(ico|webp|avif|css|js|svg|woff|woff2|ttf|eot)$ {
             expires 365d;
             add_header Cache-Control "public, immutable";
             access_log off;
