@@ -438,7 +438,7 @@ http {
     limit_req_zone $binary_remote_addr zone=wp_login:10m rate=1r/s;
 
     # WebP: serwuj skonwertowane obrazy z uploads-webpc/ gdy przeglądarka obsługuje WebP
-    map \$http_accept \$webp_suffix {
+    map $http_accept $webp_suffix {
         default "";
         "~*webp" ".webp";
     }
@@ -461,7 +461,7 @@ http {
             expires 365d;
             add_header Cache-Control "public, immutable";
             access_log off;
-            try_files /wp-content/uploads-webpc/\$uri\$webp_suffix \$uri =404;
+            try_files /wp-content/uploads-webpc/$uri$webp_suffix $uri =404;
         }
 
         # Static files - cache 1 year, serwowane bez PHP
