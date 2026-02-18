@@ -128,6 +128,72 @@ fi
 SSH_ALIAS="${SSH_ALIAS:-mikrus}"
 
 # =============================================================================
+# SPRAWDZANIE POŁĄCZENIA SSH
+# =============================================================================
+
+if ! is_on_server; then
+    # Sprawdź czy alias SSH jest skonfigurowany (ssh -G parsuje config bez łączenia)
+    _SSH_RESOLVED_HOST=$(ssh -G "$SSH_ALIAS" 2>/dev/null | awk '/^hostname / {print $2}')
+
+    if [ -z "$_SSH_RESOLVED_HOST" ] || [ "$_SSH_RESOLVED_HOST" = "$SSH_ALIAS" ]; then
+        # Alias nie jest skonfigurowany w ~/.ssh/config
+        echo ""
+        echo -e "${RED}❌ Alias SSH '$SSH_ALIAS' nie jest skonfigurowany${NC}"
+        echo ""
+        echo "   Potrzebujesz danych z maila od Mikrusa: host, port i hasło."
+        echo ""
+
+        SETUP_SCRIPT="$REPO_ROOT/local/setup-ssh.sh"
+        if [[ "$IS_GITBASH" == "true" ]] || [[ "$YES_MODE" == "true" ]]; then
+            # Windows (Git Bash) lub tryb --yes — pokaż instrukcje
+            echo "   Uruchom konfigurację SSH:"
+            echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
+            exit 1
+        elif [ -f "$SETUP_SCRIPT" ]; then
+            # macOS/Linux — zaproponuj automatyczne uruchomienie
+            if confirm "   Skonfigurować połączenie SSH teraz?"; then
+                echo ""
+                bash "$SETUP_SCRIPT"
+                # Po konfiguracji sprawdź ponownie
+                if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
+                    echo ""
+                    echo -e "${RED}❌ Połączenie nadal nie działa. Sprawdź dane i spróbuj ponownie.${NC}"
+                    exit 1
+                fi
+            else
+                exit 1
+            fi
+        else
+            echo "   Skonfiguruj SSH:"
+            echo -e "   ${BLUE}bash <(curl -s https://raw.githubusercontent.com/pavvel11/mikrus-toolbox/main/local/setup-ssh.sh)${NC}"
+            exit 1
+        fi
+    else
+        # Alias skonfigurowany — sprawdź czy połączenie działa
+        echo -n "🔗 Sprawdzam połączenie SSH ($SSH_ALIAS)... "
+        if ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
+            echo -e "${GREEN}✓${NC}"
+        else
+            echo -e "${RED}✗${NC}"
+            echo ""
+            echo -e "${RED}❌ Nie mogę połączyć się z serwerem '$SSH_ALIAS' ($_SSH_RESOLVED_HOST)${NC}"
+            echo ""
+            echo "   Możliwe przyczyny:"
+            echo "   - Serwer jest wyłączony lub nie odpowiada"
+            echo "   - Klucz SSH nie jest autoryzowany na serwerze"
+            echo "   - Nieprawidłowy host lub port w ~/.ssh/config"
+            echo ""
+            echo "   Diagnostyka:"
+            echo -e "   ${BLUE}ssh -v $SSH_ALIAS${NC}"
+            echo ""
+            echo "   Ponowna konfiguracja:"
+            echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
+            exit 1
+        fi
+    fi
+fi
+
+# =============================================================================
 # ZAŁADUJ ZAPISANĄ KONFIGURACJĘ (dla GateFlow)
 # =============================================================================
 
