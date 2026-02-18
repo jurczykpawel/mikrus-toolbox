@@ -785,10 +785,15 @@ if [ "$NEEDS_DB" = true ]; then
 fi
 
 # Przygotuj zmienną DOMAIN do przekazania
+# Przekaż domenę zawsze gdy jest dostępna — nawet w trybie local.
+# install.sh używa domeny do nazewnictwa instancji (np. WordPress multi-instance).
 DOMAIN_ENV=""
-if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ]; then
+if [ "$NEEDS_DOMAIN" = true ] && [ -n "$DOMAIN" ]; then
     if [ "$DOMAIN" = "-" ]; then
-        if [ "$APP_NAME" = "gateflow" ]; then
+        if [ "$DOMAIN_TYPE" = "local" ]; then
+            # Tryb local bez konkretnej domeny — nic nie przekazuj
+            :
+        elif [ "$APP_NAME" = "gateflow" ]; then
             # GateFlow ma własny mechanizm — deploy.sh aktualizuje .env.local po Cytrus
             DOMAIN_ENV="DOMAIN='-'"
         else

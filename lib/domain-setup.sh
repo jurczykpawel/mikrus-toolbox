@@ -61,9 +61,12 @@ ask_domain() {
                 ;;
         esac
 
-        # local nie wymaga DOMAIN
+        # local nie wymaga publicznej domeny, ale zachowaj DOMAIN jeśli podana
+        # (install.sh może użyć domeny do nazewnictwa instancji, np. WordPress multi-instance)
         if [ "$DOMAIN_TYPE" = "local" ]; then
-            export DOMAIN=""
+            if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "auto" ]; then
+                export DOMAIN=""
+            fi
             echo -e "${GREEN}✅ Tryb: tylko lokalnie (tunel SSH)${NC}"
             return 0
         fi
