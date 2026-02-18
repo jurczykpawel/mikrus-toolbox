@@ -236,7 +236,8 @@ source .env.local
 set +a
 export PORT="${PORT:-3333}"
 # :: słucha na IPv4 i IPv6 (wymagane dla Cytrus który łączy się przez IPv6)
-export HOSTNAME="${HOSTNAME:-::}"
+# WAŻNE: nie używaj ${HOSTNAME:-::} — system ustawia HOSTNAME na nazwę maszyny
+export HOSTNAME="::"
 
 pm2 delete $PM2_NAME 2>/dev/null || true
 # WAŻNE: użyj --interpreter node, NIE "node server.js" w cudzysłowach

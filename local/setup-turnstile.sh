@@ -487,7 +487,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
 
             STANDALONE_DIR="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel"
             # WAŻNE: użyj --interpreter node, NIE 'node server.js' w cudzysłowach (bash nie dziedziczy env)
-            RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME=\${HOSTNAME:-::} && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
+            RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME='::' && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
 
             if server_exec "$RESTART_CMD" 2>/dev/null; then
                 echo -e "${GREEN}   ✅ Aplikacja zrestartowana${NC}"

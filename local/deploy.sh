@@ -1016,7 +1016,7 @@ DOMAIN_EOF
                 pm2 delete gateflow 2>/dev/null || true
                 set -a && source .env.local && set +a
                 export PORT=\${PORT:-3333}
-                export HOSTNAME=\${HOSTNAME:-::}
+                export HOSTNAME='::'
                 pm2 start server.js --name gateflow --interpreter node
                 pm2 save
             " 2>/dev/null || true
