@@ -42,6 +42,7 @@ Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
 | Blokada wrażliwych plików | wp-config.php, .env, uploads/*.php | plugin lub ręcznie |
 | no-new-privileges | Kontener nie eskaluje uprawnień | Docker know-how |
 | Log rotation | Logi nie zapchają dysku (max 30MB) | standard |
+| Converter for Media (WebP) | Auto-konwersja obrazów do WebP (-25-35% vs JPEG) | plugin + ręczna konfig. |
 
 **Porównanie cenowe:** Kinsta od $35/mies, WP Engine od $25/mies, Redis addon u Kinsta $100/mies.
 Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
@@ -117,6 +118,28 @@ REDIS_PASS=tajneHaslo WP_REDIS=external ./local/deploy.sh wordpress --ssh=mikrus
 ./local/deploy.sh wordpress --ssh=mikrus
 ```
 
+## Wiele stron WordPress na jednym serwerze
+
+Każdy deploy z osobną domeną tworzy niezależną instancję:
+
+```bash
+./local/deploy.sh wordpress --domain=blog.example.com    # → /opt/stacks/wordpress-blog/
+./local/deploy.sh wordpress --domain=shop.example.com    # → /opt/stacks/wordpress-shop/
+./local/deploy.sh wordpress --domain=news.example.com    # → /opt/stacks/wordpress-news/
+```
+
+Co jest współdzielone, a co osobne:
+
+| Element | Współdzielony? |
+|---|---|
+| Redis | tak — jeden `redis-shared` na `127.0.0.1:6379` (instalowany automatycznie) |
+| Nginx | nie — osobny per instancja |
+| PHP-FPM | nie — osobny per instancja |
+| Pliki WP | nie — osobny volume per instancja |
+| Redis klucze | izolowane prefiksem (`wordpress-blog:`, `wordpress-shop:`) |
+
+Każda dodatkowa strona to ~80MB RAM (PHP-FPM + Nginx). Redis współdzielony oszczędza ~96MB vs osobny per site.
+
 ## Wymagania
 
 - **RAM:** ~80-100MB idle (WP + Nginx + Redis), działa na Mikrus 2.1 (1GB RAM)
@@ -134,6 +157,7 @@ Optymalizacje `wp-init.sh` uruchamiają się **automatycznie** po kreatorze. Nie
 - Instaluje i aktywuje plugin **Redis Object Cache** + włącza drop-in
 - Instaluje i aktywuje plugin **Nginx Helper** (auto-purge FastCGI cache)
 - Konfiguruje Nginx Helper: file-based purge, purge przy edycji/usunięciu/komentarzu
+- Instaluje i aktywuje plugin **Converter for Media** (auto-konwersja obrazów do WebP)
 - Dodaje systemowy cron co 5 min (zastępuje wp-cron)
 - Czyści FastCGI cache po konfiguracji
 
@@ -233,7 +257,13 @@ Cloudflare edge cache działa **nad** Nginx FastCGI cache - statyki serwowane z 
 
 ### Converter for Media (WebP)
 
-Zainstaluj wtyczkę "Converter for Media" → automatyczna konwersja obrazów do WebP.
+Plugin **Converter for Media** jest instalowany i aktywowany automatycznie. Nowe obrazy uploadowane do Media Library są konwertowane do WebP od razu.
+
+Aby skonwertować istniejące obrazy, użyj bulk conversion w panelu WP (Media → Converter for Media → Start Bulk Optimization) lub WP-CLI:
+
+```bash
+ssh mikrus 'docker exec $(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) wp converter-for-media regenerate --path=/var/www/html'
+```
 
 ## Security
 

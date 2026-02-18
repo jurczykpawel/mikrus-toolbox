@@ -829,6 +829,17 @@ if docker exec "$CONTAINER" test -f /usr/local/bin/wp; then
         docker exec -u www-data "$CONTAINER" wp option update rt_wp_nginx_helper_options \
             '{"enable_purge":"1","cache_method":"enable_fastcgi","purge_method":"unlink_files","purge_homepage_on_edit":"1","purge_homepage_on_del":"1","purge_archive_on_edit":"1","purge_archive_on_del":"1","purge_archive_on_new_comment":"1","purge_archive_on_deleted_comment":"1","purge_page_on_mod":"1","purge_page_on_new_comment":"1","purge_page_on_deleted_comment":"1","log_level":"NONE","log_filesize":"5","nginx_cache_path":"/var/cache/nginx"}' \
             --format=json --path=/var/www/html 2>/dev/null || true
+
+        # Converter for Media — automatyczna konwersja obrazów do WebP
+        if ! docker exec -u www-data "$CONTAINER" wp plugin is-installed webp-converter-for-media --path=/var/www/html 2>/dev/null; then
+            log "   📥 Instaluję plugin Converter for Media (WebP)..."
+            if docker exec -u www-data "$CONTAINER" wp plugin install webp-converter-for-media --activate --path=/var/www/html 2>/dev/null; then
+                log "   ✅ Plugin Converter for Media zainstalowany"
+            fi
+        else
+            docker exec -u www-data "$CONTAINER" wp plugin activate webp-converter-for-media --path=/var/www/html 2>/dev/null || true
+            log "   ℹ️  Plugin Converter for Media już zainstalowany"
+        fi
     else
         log "   ℹ️  Baza danych jeszcze nie zainicjalizowana — pluginy zostaną zainstalowane automatycznie"
     fi
