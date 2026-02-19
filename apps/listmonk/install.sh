@@ -37,9 +37,23 @@ echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 
-# UWAGA: Listmonk nie obsługuje custom schema (zawsze używa public).
-# Jeśli współdzielisz bazę z innymi apkami, listmonk tworzy tabele w schemacie public.
-# Bezpieczne — nazwy tabel listmonka (campaigns, subscribers, lists, etc.) są unikalne.
+# Ostrzeżenie: Listmonk nie obsługuje custom schema (zawsze pisze do public)
+echo ""
+echo -e "${YELLOW:-\033[1;33m}⚠️  UWAGA: Listmonk nie obsługuje izolacji schematu!${NC:-\033[0m}"
+echo "   Tabele zostaną utworzone w schemacie 'public' bazy '$DB_NAME'."
+echo "   Jeśli współdzielisz tę bazę z innymi apkami, tabele listmonka"
+echo "   (campaigns, subscribers, lists, etc.) będą obok nich."
+echo ""
+if [ "${YES_MODE:-}" = true ]; then
+    echo "   (--yes: akceptuję automatycznie)"
+else
+    read -p "   Kontynuować? (t/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
+        echo "Anulowano."
+        exit 1
+    fi
+fi
 
 # Check for shared Mikrus DB (doesn't support pgcrypto)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
