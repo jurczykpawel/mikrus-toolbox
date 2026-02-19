@@ -55,10 +55,6 @@
                 <!-- Tutaj dodawaj przyciski -->
             </div>
 
-            <footer>
-                Build your own with <a href="https://littlelink.io" target="_blank" rel="noopener">LittleLink</a>
-            </footer>
-
         </div>
     </div>
 </body>
@@ -186,3 +182,4 @@ generic-rss.svg, generic-shopping-bag.svg, generic-shopping-tag.svg, generic-sms
 - Nie dodawaj `brands-extended.css` (niepotrzebne, zwiększa rozmiar)
 - Avatar: zamień `images/avatar.png` i `images/avatar@2x.png` na własne zdjęcie (kwadratowe, min. 128x128px, retina 256x256px)
 - Po edycji pliku zmiany są natychmiastowe (statyczny HTML serwowany przez Caddy)
+- Usuń domyślną stopkę "Build your own with LittleLink" (cały tag `<footer>`) — nie chcemy reklamować narzędzia na naszej stronie
