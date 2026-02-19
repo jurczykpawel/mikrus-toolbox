@@ -352,6 +352,7 @@ tests/           → Testy automatyczne
 
 Buduję narzędzia dla solopreneurów, którzy wolą automatyzować niż klikać. Mikrus Toolbox to zestaw, którego sam używam do prowadzenia biznesu.
 
+- [me.techskills.academy](https://me.techskills.academy) - moje linki
 - [GateFlow](https://github.com/jurczykpawel/gateflow) - open-source sklep z produktami cyfrowymi
 - [Mikrus n8n Manager](https://manager.cytr.us/) - GUI do instalacji n8n na Mikrusie
 

@@ -244,6 +244,27 @@ else
     done
 fi
 
+# =============================================================================
+# WERYFIKACJA UPLOADSÓW (wymagane dla TikTok, Instagram media)
+# =============================================================================
+# TikTok pobiera media przez pull_from_url — pliki muszą być dostępne publicznie
+# po HTTPS. Postiz serwuje /uploads przez wewnętrzny nginx, więc jeśli jest domena
+# to uploady są dostępne automatycznie (reverse_proxy/Cytrus przekazuje ruch).
+
+UPLOADS_OK=false
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    # Poczekaj aż domena zacznie odpowiadać (cert SSL może potrzebować chwili)
+    for i in $(seq 1 6); do
+        UPLOAD_CHECK=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${DOMAIN}/uploads/" 2>/dev/null || echo "000")
+        # 404/403 = serwer odpowiada (katalog pusty, ale endpoint działa)
+        if [ "$UPLOAD_CHECK" -ge 200 ] && [ "$UPLOAD_CHECK" -lt 500 ]; then
+            UPLOADS_OK=true
+            break
+        fi
+        sleep 5
+    done
+fi
+
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo "✅ Postiz zainstalowany!"
@@ -256,14 +277,34 @@ elif [ "$DOMAIN" = "-" ]; then
 else
     echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
+
+if [ "$UPLOADS_OK" = true ]; then
+    echo ""
+    echo -e "${GREEN:-\033[0;32m}✅ Uploady publiczne: https://${DOMAIN}/uploads/${NC:-\033[0m}"
+    echo "   TikTok, Instagram i inne platformy wymagające pull_from_url będą działać."
+else
+    echo ""
+    echo -e "${YELLOW:-\033[1;33m}⚠️  Uploady mogą nie być dostępne publicznie!${NC:-\033[0m}"
+    echo "   TikTok pobiera media przez URL — pliki muszą być dostępne po HTTPS."
+    echo "   Sprawdź: https://<twoja-domena>/uploads/"
+    echo "   Alternatywa: Cloudflare R2 (STORAGE_PROVIDER=cloudflare-r2)"
+    echo "   Docs: https://docs.postiz.com/providers/tiktok"
+fi
+
 echo ""
 echo "📝 Następne kroki:"
 echo "   1. Utwórz konto administratora w przeglądarce"
 echo "   2. Wyłącz rejestrację (komenda poniżej!)"
 echo "   3. Skonfiguruj klucze API dla platform social media:"
 echo "      https://docs.postiz.com/providers"
-echo "      Każda platforma (X, LinkedIn, YouTube...) wymaga osobnych kluczy."
-echo "      Dodaj je jako zmienne środowiskowe w docker-compose.yaml"
+echo ""
+echo "   ⚠️  Ważne uwagi przy konfiguracji providerów:"
+echo "   • Facebook: przełącz app z Development → Live (inaczej posty widoczne tylko dla Ciebie!)"
+echo "   • LinkedIn: dodaj Advertising API (bez tego tokeny nie odświeżają się!)"
+echo "   • TikTok: domena z uploadami musi być zweryfikowana w TikTok Developer Account"
+echo "   • YouTube: po konfiguracji Brand Account poczekaj ~5h na propagację"
+echo "   • Threads: złożona konfiguracja — przeczytaj docs.postiz.com/providers/threads"
+echo "   • Discord/Slack: ikona aplikacji jest wymagana (bez niej błąd 404)"
 echo ""
 echo "🔒 WAŻNE — wyłącz rejestrację po utworzeniu konta:"
 echo "   ssh ${SSH_ALIAS:-mikrus} 'cd $STACK_DIR && sed -i \"/IS_GENERAL/a\\\\      - DISABLE_REGISTRATION=true\" docker-compose.yaml && docker compose up -d'"
