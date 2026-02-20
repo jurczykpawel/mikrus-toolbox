@@ -45,7 +45,7 @@ echo "   5. Kliknij 'Continue to summary' → 'Create Token'"
 echo "   6. Skopiuj token (pokazuje się tylko raz!)"
 echo ""
 echo "   💡 Uprawnienia Zone Settings i Cache Rules są potrzebne dla"
-echo "      automatycznej optymalizacji (SSL Flexible, Brotli, cache)."
+echo "      automatycznej optymalizacji (SSL Full, Brotli, cache)."
 echo ""
 
 # Otwórz przeglądarkę (różne komendy dla różnych systemów)
