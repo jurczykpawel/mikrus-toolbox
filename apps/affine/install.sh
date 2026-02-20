@@ -7,6 +7,7 @@
 # Author: Pawel (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=750  # affine (~273MB) + pgvector/pgvector:pg16 (~350MB) + redis:alpine (~40MB)
+# DB_BUNDLED=true
 #
 # WYMAGANIA: PostgreSQL 16 z rozszerzeniem pgvector!
 #     Współdzielona baza Mikrusa NIE działa (PostgreSQL 12 bez pgvector).
