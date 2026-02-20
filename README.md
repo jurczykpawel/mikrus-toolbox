@@ -99,6 +99,7 @@ Dla **solopreneurów, freelancerów i małych firm**, które:
 
 | Aplikacja | Zastępuje | Co robi |
 | :--- | :--- | :--- |
+| [**AFFiNE**](apps/affine/) | Notion / Miro | Baza wiedzy z dokumentami, tablicami i bazą danych. Open-source. |
 | [**WordPress**](apps/wordpress/) | WordPress.com | **Performance Edition:** Nginx + PHP-FPM + Redis Object Cache, auto-tuning. |
 | [**NocoDB**](apps/nocodb/) | Airtable | **Baza danych** z interfejsem arkusza kalkulacyjnego. CRM, projekty, zamówienia. |
 | [**Stirling-PDF**](apps/stirling-pdf/) | Adobe Acrobat | **Edycja, łączenie, podpisywanie** PDF-ów w przeglądarce. |
