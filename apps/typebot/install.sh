@@ -115,6 +115,7 @@ services:
       - ADMIN_EMAIL=$ADMIN_EMAIL
     depends_on:
       - typebot-viewer
+$([ -n "$BUNDLED_DB_TYPE" ] && echo "      - db")
     deploy:
       resources:
         limits:
@@ -130,12 +131,36 @@ services:
       - NEXTAUTH_URL=$NEXTAUTH_URL
       - NEXT_PUBLIC_VIEWER_URL=$VIEWER_URL
       - ENCRYPTION_SECRET=$ENCRYPTION_SECRET
+$([ -n "$BUNDLED_DB_TYPE" ] && printf '    depends_on:\n      - db\n')
     deploy:
       resources:
         limits:
           memory: 300M
-
 EOF
+
+# Dodaj bundled bazę danych jeśli używamy bundled DB
+if [ -n "$BUNDLED_DB_TYPE" ]; then
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db-data:
+DBEOF
+    fi
+fi
 
 sudo docker compose up -d
 

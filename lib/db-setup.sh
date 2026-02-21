@@ -10,12 +10,13 @@
 #   3. fetch_database()  - pobiera dane z API (jeśli shared)
 #
 # Flagi CLI:
-#   --db-source=shared|custom
+#   --db-source=shared|bundled|custom
 #   --db-host=HOST --db-port=PORT --db-name=NAME
 #   --db-schema=SCHEMA --db-user=USER --db-pass=PASS
 #
 # Po wywołaniu dostępne zmienne:
 #   $DB_HOST, $DB_PORT, $DB_NAME, $DB_SCHEMA, $DB_USER, $DB_PASS, $DB_SOURCE
+#   $BUNDLED_DB_TYPE (postgres|mysql) - ustawiane gdy DB_SOURCE=bundled
 
 # Załaduj cli-parser jeśli nie załadowany
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +39,7 @@ export DB_SCHEMA="${DB_SCHEMA:-}"
 export DB_USER="${DB_USER:-}"
 export DB_PASS="${DB_PASS:-}"
 export DB_SOURCE="${DB_SOURCE:-}"
+export BUNDLED_DB_TYPE="${BUNDLED_DB_TYPE:-}"
 
 # Aplikacje wymagające pgcrypto (nie działają ze współdzieloną bazą Mikrusa)
 # n8n od wersji 1.121+ wymaga gen_random_uuid() które potrzebuje pgcrypto lub PostgreSQL 13+
@@ -141,9 +143,9 @@ ask_database() {
     if [ -n "$DB_SOURCE" ]; then
         # Walidacja: shared zablokowane dla niektórych apps
         if [ "$DB_SOURCE" = "shared" ] && [ "$SHARED_BLOCKED" = true ]; then
-            echo -e "${RED}Błąd: $APP_NAME wymaga dedykowanej bazy (--db-source=custom)${NC}" >&2
+            echo -e "${RED}Błąd: $APP_NAME wymaga dedykowanej bazy (--db-source=bundled lub --db-source=custom)${NC}" >&2
             echo "   Współdzielona baza Mikrus nie obsługuje pgcrypto." >&2
-            echo "   Wykup dedykowany PostgreSQL: https://mikr.us/panel/?a=cloud" >&2
+            echo "   Użyj --db-source=bundled (PostgreSQL w Docker) lub wykup dedykowany PostgreSQL." >&2
             return 1
         fi
 
@@ -158,6 +160,11 @@ ask_database() {
                 ask_custom_db "$DB_TYPE" "$APP_NAME"
                 return $?
             fi
+        fi
+
+        # Walidacja: bundled obsługiwane w fetch_database
+        if [ "$DB_SOURCE" = "bundled" ]; then
+            BUNDLED_DB_TYPE="$DB_TYPE"
         fi
 
         echo -e "${GREEN}✅ Baza danych: $DB_SOURCE (schemat: $DB_SCHEMA)${NC}"
@@ -197,7 +204,11 @@ ask_database() {
         echo ""
     fi
 
-    echo "  2) 💰 Własna/wykupiona baza"
+    echo "  2) 📦 Bundled baza w Docker (zalecane)"
+    echo "     PostgreSQL/MySQL kontener obok aplikacji — zero konfiguracji"
+    echo ""
+
+    echo "  3) 💰 Własna/wykupiona baza"
     echo "     Podasz własne dane połączenia"
     echo "     ➜ Kup w: https://mikr.us/panel/?a=cloud"
     echo ""
@@ -209,7 +220,7 @@ ask_database() {
         DEFAULT_CHOICE="2"
     fi
 
-    read -p "Wybierz opcję [1-2, domyślnie $DEFAULT_CHOICE]: " DB_CHOICE
+    read -p "Wybierz opcję [1-3, domyślnie $DEFAULT_CHOICE]: " DB_CHOICE
     DB_CHOICE="${DB_CHOICE:-$DEFAULT_CHOICE}"
 
     case $DB_CHOICE in
@@ -219,7 +230,7 @@ ask_database() {
                 echo -e "${RED}❌ $APP_NAME nie działa ze współdzieloną bazą Mikrusa!${NC}"
                 echo "   Wymaga rozszerzenia pgcrypto (brak uprawnień w darmowej bazie)."
                 echo ""
-                echo "   Wykup dedykowany PostgreSQL: https://mikr.us/panel/?a=cloud"
+                echo "   Użyj opcji 2 (bundled) lub wykup dedykowany PostgreSQL."
                 echo ""
                 return 1
             fi
@@ -230,6 +241,13 @@ ask_database() {
             return 0
             ;;
         2)
+            export DB_SOURCE="bundled"
+            BUNDLED_DB_TYPE="$DB_TYPE"
+            echo ""
+            echo -e "${GREEN}✅ Wybrano: bundled baza ($DB_TYPE w Docker)${NC}"
+            return 0
+            ;;
+        3)
             export DB_SOURCE="custom"
             ask_custom_db "$DB_TYPE" "$APP_NAME"
             return $?
@@ -387,6 +405,99 @@ warn_if_schema_exists() {
 }
 
 # =============================================================================
+# BUNDLED DATABASE SETUP
+# =============================================================================
+
+# Generuj credentiale i ustaw zmienne DB_* dla bundled bazy w Docker.
+# Skrypt wywołujący (deploy.sh / install.sh) odpowiada za dodanie
+# odpowiedniego serwisu postgres/mysql do docker-compose.yaml.
+#
+# Ustawia: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, BUNDLED_DB_TYPE
+setup_bundled_db() {
+    local DB_TYPE="${1:-${BUNDLED_DB_TYPE:-postgres}}"
+
+    BUNDLED_DB_TYPE="$DB_TYPE"
+
+    # Generuj losowe credentiale
+    DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
+    DB_USER="app"
+    DB_NAME="appdb"
+
+    if [ "$DB_TYPE" = "postgres" ]; then
+        DB_HOST="db"
+        DB_PORT="5432"
+    elif [ "$DB_TYPE" = "mysql" ]; then
+        DB_HOST="db"
+        DB_PORT="3306"
+    else
+        echo -e "${RED}❌ Bundled DB nie obsługuje typu: $DB_TYPE${NC}" >&2
+        return 1
+    fi
+
+    export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS BUNDLED_DB_TYPE
+
+    echo -e "${GREEN}✅ Bundled $DB_TYPE baza skonfigurowana${NC}"
+    echo "   Credentiale wygenerowane automatycznie (zapisane w docker-compose.yaml)"
+
+    return 0
+}
+
+# Generuj fragment docker-compose YAML dla bundled DB.
+# Wywoływane przez app install.sh gdy BUNDLED_DB_TYPE jest ustawiony.
+# Użycie: inject_bundled_db_service >> docker-compose.yaml
+inject_bundled_db_service() {
+    [ -z "$BUNDLED_DB_TYPE" ] && return 0
+
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME:-appdb}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+DBEOF
+    elif [ "$BUNDLED_DB_TYPE" = "mysql" ]; then
+        cat <<DBEOF
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME:-appdb}
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes:
+      - db-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+DBEOF
+    fi
+}
+
+# Generuj sekcję volumes dla bundled DB.
+# Użycie: inject_bundled_db_volumes >> docker-compose.yaml
+inject_bundled_db_volumes() {
+    [ -z "$BUNDLED_DB_TYPE" ] && return 0
+    cat <<DBEOF
+
+volumes:
+  db-data:
+DBEOF
+}
+
+# =============================================================================
 # FAZA 2: Pobieranie danych (ciężkie operacje)
 # =============================================================================
 
@@ -397,6 +508,12 @@ fetch_database() {
     # Jeśli custom - dane już są, nic nie robimy
     if [ "$DB_SOURCE" = "custom" ]; then
         return 0
+    fi
+
+    # Bundled - generuj credentiale i przygotuj konfigurację kontenera
+    if [ "$DB_SOURCE" = "bundled" ]; then
+        setup_bundled_db "$DB_TYPE"
+        return $?
     fi
 
     # Shared - pobierz z API
@@ -603,6 +720,9 @@ export -f get_db_recommendation
 export -f get_default_db_type
 export -f ask_database
 export -f ask_custom_db
+export -f setup_bundled_db
+export -f inject_bundled_db_service
+export -f inject_bundled_db_volumes
 export -f check_schema_exists
 export -f warn_if_schema_exists
 export -f fetch_database

@@ -112,6 +112,38 @@ services:
 
 EOF
 
+# Dodaj bundled bazę danych jeśli używamy bundled DB
+if [ -n "$BUNDLED_DB_TYPE" ]; then
+    # Dodaj depends_on do serwisu listmonk
+    sudo sed -i '/restart: always/a\    depends_on:\n      - db' docker-compose.yaml
+
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db-data:
+DBEOF
+    fi
+
+    # Start DB first so migrations can connect
+    sudo docker compose up -d db
+    echo "Czekam na start bazy danych..."
+    sleep 5
+fi
+
 # 1. Run Install (Migrate DB)
 echo "Running database migrations..."
 sudo docker compose run --rm listmonk ./listmonk --install --yes || echo "Migrations already done or failed."

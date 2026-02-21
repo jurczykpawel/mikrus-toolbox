@@ -208,7 +208,7 @@ Opcje SSH:
   --ssh=ALIAS          SSH alias z ~/.ssh/config (domyślnie: mikrus)
 
 Opcje bazy danych:
-  --db-source=TYPE     Źródło bazy: shared (API Mikrus) lub custom
+  --db-source=TYPE     Źródło bazy: shared (API Mikrus), bundled (Docker) lub custom
   --db-host=HOST       Host bazy danych
   --db-port=PORT       Port bazy (domyślnie: 5432)
   --db-name=NAME       Nazwa bazy danych

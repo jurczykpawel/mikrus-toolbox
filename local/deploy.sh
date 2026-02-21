@@ -55,7 +55,7 @@ Opcje SSH:
   --ssh=ALIAS          SSH alias z ~/.ssh/config (domyślnie: mikrus)
 
 Opcje bazy danych:
-  --db-source=TYPE     Źródło bazy: shared (API Mikrus) lub custom
+  --db-source=TYPE     Źródło bazy: shared (API Mikrus), bundled (Docker) lub custom
   --db-host=HOST       Host bazy danych
   --db-port=PORT       Port bazy (domyślnie: 5432)
   --db-name=NAME       Nazwa bazy danych
@@ -767,8 +767,8 @@ if [ "$NEEDS_DB" = true ]; then
         exit 1
     fi
 
-    # Sprawdź czy schemat już istnieje (ostrzeżenie dla użytkownika)
-    if [ "$DB_TYPE" = "postgres" ]; then
+    # Sprawdź czy schemat już istnieje (ostrzeżenie dla użytkownika) - tylko dla zewnętrznych baz
+    if [ "$DB_TYPE" = "postgres" ] && [ "$DB_SOURCE" != "bundled" ]; then
         if ! warn_if_schema_exists "$SSH_ALIAS" "$APP_NAME"; then
             echo "Instalacja anulowana przez użytkownika."
             exit 1
@@ -779,10 +779,11 @@ if [ "$NEEDS_DB" = true ]; then
     ESCAPED_DB_PASS="${DB_PASS//\'/\'\\\'\'}"
 
     # Przygotuj zmienne środowiskowe
-    DB_ENV_VARS="DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
+    DB_ENV_VARS="DB_SOURCE='$DB_SOURCE' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
+    [ -n "$BUNDLED_DB_TYPE" ] && DB_ENV_VARS="$DB_ENV_VARS BUNDLED_DB_TYPE='$BUNDLED_DB_TYPE'"
 
     echo ""
-    echo "📋 Baza danych:"
+    echo "📋 Baza danych ($DB_SOURCE):"
     echo "   Host: $DB_HOST"
     echo "   Baza: $DB_NAME"
     if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
