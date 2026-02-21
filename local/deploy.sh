@@ -586,6 +586,9 @@ if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
     elif grep -q '# DB_BUNDLED=true' "$SCRIPT_PATH" 2>/dev/null; then
         echo ""
         echo -e "${GREEN}✅ Aplikacja ma wbudowaną bazę danych — konfiguracja nie wymagana${NC}"
+    elif grep -q '# DB_OPTIONAL=true' "$SCRIPT_PATH" 2>/dev/null; then
+        echo ""
+        echo -e "${GREEN}✅ Baza danych opcjonalna — aplikacja użyje wbudowanego SQLite${NC}"
     else
         NEEDS_DB=true
 
