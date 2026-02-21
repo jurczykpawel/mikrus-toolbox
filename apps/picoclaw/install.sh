@@ -55,31 +55,55 @@ CONFIG_FILE="$STACK_DIR/config/config.json"
 
 if [ -f "$CONFIG_FILE" ]; then
     echo "✅ Konfiguracja istnieje: $CONFIG_FILE"
-elif [ "$YES_MODE" = "true" ]; then
-    echo "❌ Brak konfiguracji PicoClaw!"
+elif [ "$YES_MODE" = "true" ] || [ ! -t 0 ]; then
+    # Utwórz template config z placeholderami do uzupełnienia
+    cat <<'TEMPLATEEOF' | sudo tee "$CONFIG_FILE" > /dev/null
+{
+  "agents": {
+    "defaults": {
+      "model": "openrouter/anthropic/claude-sonnet-4-20250514"
+    }
+  },
+  "providers": {
+    "openrouter": {
+      "api_key": "UZUPELNIJ_KLUCZ_API",
+      "api_base": "https://openrouter.ai/api/v1"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "UZUPELNIJ_TOKEN_BOTA",
+      "allowed_users": [0]
+    }
+  }
+}
+TEMPLATEEOF
+    sudo chmod 600 "$CONFIG_FILE"
     echo ""
-    echo "   W trybie --yes config.json musi już istnieć."
-    echo "   Utwórz plik: $CONFIG_FILE"
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║  📝 Utworzono template konfiguracji PicoClaw                  ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Plik: $CONFIG_FILE"
+    echo "║                                                              ║"
+    echo "║  Uzupełnij w nim:                                            ║"
+    echo "║    1. api_key  — klucz API dostawcy LLM                      ║"
+    echo "║    2. token    — token bota (Telegram/Discord/Slack)         ║"
+    echo "║    3. allowed_users — Twój User ID (tylko Telegram)          ║"
+    echo "║                                                              ║"
+    echo "║  Dostępni dostawcy LLM (sekcja providers):                   ║"
+    echo "║    openrouter  — https://openrouter.ai/keys                  ║"
+    echo "║    anthropic   — https://console.anthropic.com/settings/keys ║"
+    echo "║    openai      — https://platform.openai.com/api-keys        ║"
+    echo "║                                                              ║"
+    echo "║  Dostępne kanały (sekcja channels):                          ║"
+    echo "║    telegram    — token + allowed_users                       ║"
+    echo "║    discord     — token                                       ║"
+    echo "║    slack       — bot_token + app_token                       ║"
+    echo "║                                                              ║"
+    echo "║  Po uzupełnieniu uruchom ponownie deploy.                    ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    echo "   Przykład:"
-    echo '   {'
-    echo '     "llm": {'
-    echo '       "provider": "openrouter",'
-    echo '       "api_key": "sk-or-...",'
-    echo '       "model": "anthropic/claude-3.5-sonnet"'
-    echo '     },'
-    echo '     "channel": {'
-    echo '       "type": "telegram",'
-    echo '       "bot_token": "123456:ABC-...",'
-    echo '       "allowed_user_ids": [123456789]'
-    echo '     }'
-    echo '   }'
-    echo ""
-    echo "   Lub uruchom bez --yes dla interaktywnego wizarda."
-    exit 1
-elif [ ! -t 0 ]; then
-    echo "❌ Brak konfiguracji PicoClaw i brak interaktywnego terminala!"
-    echo "   Utwórz $CONFIG_FILE ręcznie lub uruchom interaktywnie."
     exit 1
 else
     # =========================================================================
@@ -104,19 +128,22 @@ else
     case "$LLM_CHOICE" in
         1)
             LLM_PROVIDER="openrouter"
-            LLM_MODEL="anthropic/claude-3.5-sonnet"
+            LLM_API_BASE="https://openrouter.ai/api/v1"
+            LLM_MODEL="openrouter/anthropic/claude-sonnet-4-20250514"
             echo ""
             echo "   Klucz API znajdziesz na: https://openrouter.ai/keys"
             ;;
         2)
             LLM_PROVIDER="anthropic"
-            LLM_MODEL="claude-3-5-sonnet-20241022"
+            LLM_API_BASE=""
+            LLM_MODEL="anthropic/claude-sonnet-4-20250514"
             echo ""
             echo "   Klucz API znajdziesz na: https://console.anthropic.com/settings/keys"
             ;;
         3)
             LLM_PROVIDER="openai"
-            LLM_MODEL="gpt-4o"
+            LLM_API_BASE=""
+            LLM_MODEL="openai/gpt-4o"
             echo ""
             echo "   Klucz API znajdziesz na: https://platform.openai.com/api-keys"
             ;;
@@ -170,9 +197,11 @@ else
                 echo "❌ User ID jest wymagany (zabezpieczenie — tylko Ty możesz wydawać polecenia)!"; exit 1
             fi
 
-            CHANNEL_CONFIG="\"type\": \"telegram\",
-      \"bot_token\": \"$TG_BOT_TOKEN\",
-      \"allowed_user_ids\": [$TG_USER_ID]"
+            CHANNEL_JSON="\"telegram\": {
+      \"enabled\": true,
+      \"token\": \"$TG_BOT_TOKEN\",
+      \"allowed_users\": [$TG_USER_ID]
+    }"
             ;;
         2)
             CHANNEL_TYPE="discord"
@@ -187,8 +216,10 @@ else
                 echo "❌ Token bota jest wymagany!"; exit 1
             fi
 
-            CHANNEL_CONFIG="\"type\": \"discord\",
-      \"bot_token\": \"$DC_BOT_TOKEN\""
+            CHANNEL_JSON="\"discord\": {
+      \"enabled\": true,
+      \"token\": \"$DC_BOT_TOKEN\"
+    }"
             ;;
         3)
             CHANNEL_TYPE="slack"
@@ -207,9 +238,11 @@ else
                 echo "❌ App Token jest wymagany!"; exit 1
             fi
 
-            CHANNEL_CONFIG="\"type\": \"slack\",
+            CHANNEL_JSON="\"slack\": {
+      \"enabled\": true,
       \"bot_token\": \"$SLACK_BOT_TOKEN\",
-      \"app_token\": \"$SLACK_APP_TOKEN\""
+      \"app_token\": \"$SLACK_APP_TOKEN\"
+    }"
             ;;
         *)
             echo "❌ Nieprawidłowy wybór!"; exit 1
@@ -220,16 +253,28 @@ else
     echo "✅ Kanał: $CHANNEL_TYPE"
     echo ""
 
-    # --- Generuj config.json ---
+    # --- Generuj config.json (format PicoClaw v0.1.2: providers + channels) ---
+    PROVIDER_JSON="\"$LLM_PROVIDER\": {
+      \"api_key\": \"$LLM_API_KEY\""
+    if [ -n "$LLM_API_BASE" ]; then
+        PROVIDER_JSON="$PROVIDER_JSON,
+      \"api_base\": \"$LLM_API_BASE\""
+    fi
+    PROVIDER_JSON="$PROVIDER_JSON
+    }"
+
     cat <<CONFIGEOF | sudo tee "$CONFIG_FILE" > /dev/null
 {
-  "llm": {
-    "provider": "$LLM_PROVIDER",
-    "api_key": "$LLM_API_KEY",
-    "model": "$LLM_MODEL"
+  "agents": {
+    "defaults": {
+      "model": "$LLM_MODEL"
+    }
   },
-  "channel": {
-    $CHANNEL_CONFIG
+  "providers": {
+    $PROVIDER_JSON
+  },
+  "channels": {
+    $CHANNEL_JSON
   }
 }
 CONFIGEOF
@@ -261,6 +306,8 @@ services:
 
     # --- BEZPIECZENSTWO: non-root user ---
     user: "1000:1000"
+    environment:
+      - HOME=/home/picoclaw
 
     # --- BEZPIECZENSTWO: read-only filesystem ---
     read_only: true

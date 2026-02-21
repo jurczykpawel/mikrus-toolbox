@@ -69,19 +69,32 @@ scp config.json mikrus:/opt/stacks/picoclaw/config/config.json
 
 Plik konfiguracyjny: `/opt/stacks/picoclaw/config/config.json`
 
+Format konfiguracji PicoClaw v0.1.2 sklada sie z trzech sekcji:
+- **agents** — domyslny model i parametry
+- **providers** — dostawcy LLM z kluczami API
+- **channels** — kanaly czatu (Telegram, Discord, Slack)
+
 ### Telegram (zalecany)
 
 ```json
 {
-  "llm": {
-    "provider": "openrouter",
-    "api_key": "sk-or-v1-...",
-    "model": "anthropic/claude-3.5-sonnet"
+  "agents": {
+    "defaults": {
+      "model": "openrouter/anthropic/claude-sonnet-4-20250514"
+    }
   },
-  "channel": {
-    "type": "telegram",
-    "bot_token": "123456789:AAH...",
-    "allowed_user_ids": [123456789]
+  "providers": {
+    "openrouter": {
+      "api_key": "sk-or-v1-...",
+      "api_base": "https://openrouter.ai/api/v1"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "123456789:AAH...",
+      "allowed_users": [123456789]
+    }
   }
 }
 ```
@@ -92,33 +105,67 @@ Plik konfiguracyjny: `/opt/stacks/picoclaw/config/config.json`
 
 ```json
 {
-  "llm": {
-    "provider": "anthropic",
-    "api_key": "sk-ant-...",
-    "model": "claude-3-5-sonnet-20241022"
+  "agents": {
+    "defaults": {
+      "model": "anthropic/claude-sonnet-4-20250514"
+    }
   },
-  "channel": {
-    "type": "discord",
-    "bot_token": "MTIz..."
+  "providers": {
+    "anthropic": {
+      "api_key": "sk-ant-..."
+    }
+  },
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "MTIz..."
+    }
   }
 }
 ```
+
+**Zaproszenie bota na serwer Discord:**
+1. Otworz [Discord Developer Portal](https://discord.com/developers/applications)
+2. Wybierz aplikacje → OAuth2 → URL Generator
+3. Zaznacz scopes: `bot`, `applications.commands`
+4. Zaznacz permissions: `Send Messages`, `Read Message History`
+5. Skopiuj URL i otworz w przegladarce — wybierz serwer
 
 ### Slack
 
 ```json
 {
-  "llm": {
-    "provider": "openai",
-    "api_key": "sk-...",
-    "model": "gpt-4o"
+  "agents": {
+    "defaults": {
+      "model": "openai/gpt-4o"
+    }
   },
-  "channel": {
-    "type": "slack",
-    "bot_token": "xoxb-...",
-    "app_token": "xapp-..."
+  "providers": {
+    "openai": {
+      "api_key": "sk-..."
+    }
+  },
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "bot_token": "xoxb-...",
+      "app_token": "xapp-..."
+    }
   }
 }
+```
+
+### Tryb automatyczny (--yes)
+
+W trybie `--yes` (bez terminala) installer tworzy template `config.json` z placeholderami:
+
+```bash
+./local/deploy.sh picoclaw --ssh=mikrus --domain-type=local --yes
+# Installer utworzy /opt/stacks/picoclaw/config/config.json z UZUPELNIJ_*
+# Uzupelnij plik na serwerze:
+ssh mikrus 'nano /opt/stacks/picoclaw/config/config.json'
+# Uruchom deploy ponownie:
+./local/deploy.sh picoclaw --ssh=mikrus --domain-type=local --yes
 ```
 
 ---
