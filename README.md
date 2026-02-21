@@ -62,6 +62,9 @@ Dla **solopreneurów, freelancerów i małych firm**, które:
 - [Contributing](#-contributing)
 - [Wsparcie / Społeczność](#-wsparcie--społeczność)
 - [Struktura repozytorium](#-struktura-repozytorium)
+- [Tech Stack](#️-tech-stack)
+- [Star History](#-star-history)
+- [Podziękowania](#-podziękowania)
 - [Autor](#-autor)
 - [Licencja](#-licencja)
 
@@ -407,7 +410,7 @@ Mikrus 2.1 (1GB) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu: Mikr
 Trzy opcje: **darmowa baza Mikrusa** (współdzielona, 200MB), **dedykowana baza Mikrusa** (10GB za 29 zł/rok), lub **bundled baza** wbudowana w kontener (np. WordPress z SQLite, Redis w kontenerze). `deploy.sh` poprowadzi Cię przez wybór.
 
 **Mogę to postawić na innym VPS?**
-Tak. Skrypty działają na **dowolnym VPS z Dockerem**. Mikrus jest zalecany bo jest tani i polski, ale `deploy.sh` działa z każdym serwerem po SSH.
+Tak. Skrypty działają na **dowolnym VPS z Dockerem**. Mikrus jest zalecany bo jest tani i polski, ale `deploy.sh` działa z każdym serwerem po SSH. Jeśli masz Hetznera, DigitalOcean lub innego dostawcę — sprawdź [StackPilot](https://github.com/jurczykpawel/stackpilot), angielskojęzyczną wersję tego toolboxa zoptymalizowaną pod dowolny VPS.
 
 **Jak zaktualizować aplikację?**
 Uruchom `deploy.sh` ponownie — skrypt wykryje istniejącą instalację i zaktualizuje obraz Docker. Dane w volumes zostaną zachowane.
@@ -426,6 +429,11 @@ Uruchom `deploy.sh` ponownie — skrypt wykryje istniejącą instalację i zaktu
 - [x] **Deploy lokalnych projektów** — `deploy_site` dla stron statycznych, Node.js, Python
 - [x] **WordPress Performance Edition** — Nginx + PHP-FPM + Redis Object Cache z auto-tuningiem
 - [x] **Deploy dowolnej aplikacji Docker** — `deploy_custom_app` generuje compose z AI
+
+### W trakcie
+
+- [ ] **Hosting stron statycznych i PHP** — `add-static-hosting.sh` i `add-php-hosting.sh`
+- [ ] **Synchronizacja między projektami** — wyrównanie funkcji z [StackPilot](https://github.com/jurczykpawel/stackpilot)
 
 ### W planach
 
@@ -473,6 +481,36 @@ mcp-server/      → Serwer MCP (TypeScript, Model Context Protocol)
 docs/            → Dokumentacja (Cloudflare, backup, SSH tunele, CLI reference)
 tests/           → Testy automatyczne
 ```
+
+---
+
+## 🛠️ Tech Stack
+
+| Technologia | Rola |
+| :--- | :--- |
+| **Bash** | Skrypty instalacyjne, deploy, backup, diagnostyka |
+| **Docker / Docker Compose** | Konteneryzacja aplikacji |
+| **Caddy** | Reverse proxy z automatycznym HTTPS (Let's Encrypt) |
+| **TypeScript** | Serwer MCP (Model Context Protocol) |
+| **SSH / rsync** | Zdalne zarządzanie serwerem i synchronizacja plików |
+| **Cloudflare API** | Automatyczna konfiguracja DNS |
+| **rclone** | Szyfrowane backupy do chmury (Google Drive, Dropbox, S3) |
+
+---
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=jurczykpawel/mikrus-toolbox&type=Date)](https://star-history.com/#jurczykpawel/mikrus-toolbox&Date)
+
+---
+
+## 🙏 Podziękowania
+
+- [Mikrus](https://mikr.us) — tani polski VPS, który zainspirował ten projekt
+- [Caddy](https://caddyserver.com/) — reverse proxy z automatycznym HTTPS
+- [Docker](https://www.docker.com/) — konteneryzacja, która to wszystko umożliwia
+- [Model Context Protocol](https://modelcontextprotocol.io/) — standard integracji AI z narzędziami
+- Wszystkim twórcom open-source aplikacji, które ten toolbox instaluje
 
 ---
 

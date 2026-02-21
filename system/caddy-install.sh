@@ -28,6 +28,7 @@ cat <<'EOF' | sudo tee /usr/local/bin/mikrus-expose > /dev/null
 # Modes:
 #   proxy (default) - reverse_proxy localhost:PORT
 #   static          - file_server from PATH
+#   php             - file_server + php_fastcgi from PATH
 #
 # Flags:
 #   --cloudflare    - HTTP-only (SSL terminates at Cloudflare, prevents redirect loop)
@@ -35,6 +36,7 @@ cat <<'EOF' | sudo tee /usr/local/bin/mikrus-expose > /dev/null
 # Examples:
 #   mikrus-expose n8n.example.pl 5678                         # proxy mode
 #   mikrus-expose static.example.pl /var/www/app static       # static mode
+#   mikrus-expose app.example.pl /var/www/php php              # PHP site
 #   mikrus-expose app.example.pl 5678 proxy --cloudflare      # behind Cloudflare
 
 DOMAIN=$1
@@ -60,6 +62,7 @@ if [ -z "$DOMAIN" ] || [ -z "$PORT_OR_PATH" ]; then
     echo "Modes:"
     echo "  proxy  - reverse_proxy localhost:PORT (default)"
     echo "  static - file_server from PATH"
+    echo "  php    - file_server + php_fastcgi from PATH"
     echo ""
     echo "Flags:"
     echo "  --cloudflare - HTTP-only mode (Cloudflare Flexible SSL)"
@@ -110,6 +113,21 @@ $SITE_ADDR {
     root * $PORT_OR_PATH
     file_server
     header Access-Control-Allow-Origin "*"
+}
+CONFIG
+elif [ "$MODE" = "php" ]; then
+    PHP_SOCK=$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1)
+    if [ -z "$PHP_SOCK" ]; then
+        echo "❌ PHP-FPM socket not found. Install php-fpm first."
+        exit 1
+    fi
+    echo "🚀 Exposing $DOMAIN -> $PORT_OR_PATH (PHP + static files)"
+    cat <<CONFIG | sudo tee -a "$CADDYFILE"
+
+$SITE_ADDR {
+    root * $PORT_OR_PATH
+    php_fastcgi unix/$PHP_SOCK
+    file_server
 }
 CONFIG
 else

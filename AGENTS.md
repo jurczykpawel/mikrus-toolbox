@@ -10,6 +10,7 @@ Toolbox automatyzuje instalację aplikacji Docker, konfigurację domen, backupy 
 Pomagasz użytkownikom zarządzać ich serwerami Mikrus. Możesz:
 - Instalować aplikacje (`./local/deploy.sh`)
 - Konfigurować backupy i domeny
+- Hostować strony statyczne (`./local/add-static-hosting.sh`) i PHP (`./local/add-php-hosting.sh`)
 - Synchronizować pliki z serwerem (`./local/sync.sh`)
 - Diagnozować problemy (logi, porty, RAM)
 - Tworzyć nowe instalatory (`apps/<app>/install.sh`)
@@ -168,6 +169,32 @@ Platforma sprzedaży produktów cyfrowych (alternatywa Gumroad/EasyCart). Nie u�
 ```
 
 Prosty wrapper na rsync — do szybkiego przesyłania plików bez pełnego deployu.
+
+## Hosting stron (statyczne i PHP)
+
+### Hosting statyczny
+
+```bash
+./local/add-static-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+```
+
+### Hosting PHP
+
+```bash
+./local/add-php-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+
+# Przykłady:
+./local/add-php-hosting.sh mysite.byst.re
+./local/add-php-hosting.sh app.example.com mikrus /var/www/app
+```
+
+Dwa tryby w zależności od domeny:
+- **Cytrus** (*.byst.re itp.) — Docker: Caddy + PHP-FPM na wysokim porcie (Mikrus blokuje port 80)
+- **Cloudflare** (własna domena) — natywny Caddy + PHP-FPM na hoście
+
+**Ważne:** Domena Cytrus jest rejestrowana DOPIERO po potwierdzeniu że usługa odpowiada na porcie (retry loop). Rejestracja domeny przed uruchomieniem usługi powoduje trwałą złą konfigurację backendu.
+
+MCP: `deploy_site` z projektem PHP (wykrywa `index.php` lub pliki `.php`).
 
 ## Aplikacje (26)
 

@@ -151,6 +151,7 @@ auto-tuning FPM na podstawie RAM i post-install skryptem `wp-init.sh`. Szczegó�
 | `cytrus-domain.sh` | Dodanie domeny Cytrus | `./local/cytrus-domain.sh DOMENA PORT [SSH]` |
 | `dns-add.sh` | Dodanie DNS Cloudflare | `./local/dns-add.sh DOMENA [SSH]` |
 | `add-static-hosting.sh` | Hosting plików statycznych | `./local/add-static-hosting.sh DOMENA [SSH] [DIR] [PORT]` |
+| `add-php-hosting.sh` | Hosting stron PHP | `./local/add-php-hosting.sh DOMENA [SSH] [DIR] [PORT]` |
 | `setup-backup.sh` | Konfiguracja backupów | `./local/setup-backup.sh [SSH]` |
 | `restore.sh` | Przywracanie backupu | `./local/restore.sh [SSH]` |
 | `setup-cloudflare.sh` | Konfiguracja Cloudflare API | `./local/setup-cloudflare.sh` |
@@ -253,6 +254,23 @@ Obsługiwane domeny Cytrus:
 ./local/add-static-hosting.sh static.byst.re
 ./local/add-static-hosting.sh cdn.example.com mikrus /var/www/assets 8097
 ```
+
+---
+
+### add-php-hosting.sh - Hosting PHP
+
+```bash
+./local/add-php-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+
+# Przykłady:
+./local/add-php-hosting.sh mysite.byst.re                              # Cytrus, domyślne ustawienia
+./local/add-php-hosting.sh mysite.byst.re mikrus /var/www/mysite 8090  # Własny katalog i port
+./local/add-php-hosting.sh app.example.com mikrus /var/www/app         # Cloudflare
+```
+
+Dwa tryby w zależności od domeny:
+- **Cytrus** (*.byst.re itp.) — Docker: Caddy + PHP-FPM na wysokim porcie
+- **Cloudflare** (własna domena) — natywny Caddy + PHP-FPM na hoście
 
 ---
 
