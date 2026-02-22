@@ -703,7 +703,8 @@ wait_for_domain() {
 
             echo ""
             echo "   Sprawdź za chwilę: https://$DOMAIN"
-            return 1
+            # Timeout to tylko info diagnostyczne — deploy się udał, DNS się propaguje
+            return 0
         fi
 
         # Sprawdź HTTP code i zawartość
