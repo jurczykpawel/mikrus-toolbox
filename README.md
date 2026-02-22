@@ -53,6 +53,7 @@ Dla **solopreneurów, freelancerów i małych firm**, które:
 - [Szybki start](#-szybki-start)
 - [Opcja AI / MCP](#-opcja-ai--mcp)
 - [Domeny i HTTPS](#-domeny-i-https)
+- [Benchmarki wydajności](#️-benchmarki-wydajności)
 - [Kalkulator oszczędności](#-kalkulator-oszczędności)
 - [Wymagania serwera](#-wymagania-serwera)
 - [Coolify](#-coolify---prywatny-herokuvercel-mikrus-41)
@@ -286,6 +287,50 @@ ssh mikrus 'mikrus-expose n8n.mojafirma.pl 5678'  # HTTPS
 ```
 
 > Szczegóły: [docs/cloudflare-domain-setup.md](docs/cloudflare-domain-setup.md) | [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
+
+---
+
+## 🏎️ Benchmarki wydajności
+
+WordPress na Mikrusie z Cloudflare edge cache osiąga **45 ms TTFB** — szybciej niż hosting za $50/mies.
+
+### Nasze wyniki (WordPress, Mikrus 2.1, luty 2026)
+
+Trzy konfiguracje tego samego WordPressa na tym samym serwerze:
+
+| Konfiguracja | Avg TTFB | P95 TTFB | req/s | Koszt/rok |
+|:---|:---|:---|:---|:---|
+| Cytrus (darmowa subdomena `*.byst.re`) | 191 ms | 573 ms | 22 req/s | 75 zł |
+| Cloudflare (własna domena) | 141 ms | 319 ms | 22 req/s | 75 zł + domena |
+| **Cloudflare + edge cache** | **45 ms** | **64 ms** | **45 req/s** | 75 zł + domena |
+
+Stack: Nginx + PHP-FPM + FastCGI Cache + Redis Object Cache + SQLite + Cloudflare edge cache. Jedna komenda `deploy.sh wordpress` + `setup-cloudflare-optimize.sh --app=wordpress`.
+
+### Porównanie z popularnymi hostingami
+
+| Typ hostingu | Avg TTFB | Cena/rok | Przykłady |
+|:---|:---|:---|:---|
+| Shared hosting | 400–800 ms | $36–360 | GoDaddy, Bluehost, SiteGround |
+| Managed WordPress | 335–470 ms | $156–420 | Kinsta, WP Engine, Flywheel |
+| VPS (self-managed) | 80–300 ms | $49–144 | DigitalOcean, Hetzner, Linode |
+| **Mikrus + Toolbox** | **45 ms** | **~$19 (75 zł)** | **Ten projekt** |
+
+> Dane branżowe na podstawie publicznych benchmarków (Jetveo, ReviewSignal, WP Starter). TTFB mierzony z perspektywy klienta HTTP (curl), 15 req/path, concurrency 5. Cloudflare edge cache serwuje HTML z najbliższego PoP (~20 ms RTT), eliminując czas odpowiedzi serwera dla stron w cache.
+
+### Dlaczego tak szybko?
+
+1. **FastCGI Cache** — Nginx serwuje HTML z pamięci, PHP nie musi generować strony
+2. **Redis Object Cache** — WordPress nie odpytuje bazy przy każdym requeście
+3. **Cloudflare edge cache** — HTML serwowany z CDN (300+ lokalizacji), TTFB = RTT do najbliższego PoP
+4. **SQLite** — zero overhead sieciowego, baza w jednym pliku na dysku
+5. **Auto-tuning** — `deploy.sh` dobiera parametry PHP/Nginx do dostępnego RAM-u
+
+Cała konfiguracja to dwie komendy:
+
+```bash
+./local/deploy.sh wordpress           # deploy + auto-tuning
+./local/setup-cloudflare-optimize.sh wp.mojadomena.pl --app=wordpress  # edge cache
+```
 
 ---
 
