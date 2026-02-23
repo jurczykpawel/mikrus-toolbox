@@ -126,10 +126,22 @@ Format konfiguracji PicoClaw v0.1.2 sklada sie z trzech sekcji:
 
 **Zaproszenie bota na serwer Discord:**
 1. Otworz [Discord Developer Portal](https://discord.com/developers/applications)
-2. Wybierz aplikacje → OAuth2 → URL Generator
-3. Zaznacz scopes: `bot`, `applications.commands`
-4. Zaznacz permissions: `Send Messages`, `Read Message History`
-5. Skopiuj URL i otworz w przegladarce — wybierz serwer
+2. Wybierz aplikacje → **Bot** → wlacz **Message Content Intent**
+3. Przejdz do **OAuth2** → **URL Generator**
+4. Zaznacz scopes: `bot`, `applications.commands`
+5. Zaznacz permissions (Bot Permissions):
+
+| Uprawnienie | Wymagane | Dlaczego |
+|-------------|----------|----------|
+| Send Messages | **Tak** | Bot musi odpowiadac |
+| Read Message History | **Tak** | Bot widzi kontekst rozmowy |
+| View Channels | **Tak** | Bot widzi kanaly (General Permissions) |
+| Embed Links | Zalecane | Linki z podgladem w odpowiedziach |
+| Attach Files | Zalecane | Jesli bot wygeneruje plik |
+| Add Reactions | Zalecane | Potwierdzanie reakcjami |
+| Use Slash Commands | Opcjonalne | Na przyszlosc (slash commands) |
+
+6. Skopiuj URL na dole i otworz w przegladarce — wybierz serwer
 
 ### Slack
 
@@ -154,6 +166,67 @@ Format konfiguracji PicoClaw v0.1.2 sklada sie z trzech sekcji:
   }
 }
 ```
+
+### Wybor modelu — co dziala, co nie
+
+PicoClaw to **agent z narzedziami** (tool use / function calling). Wiekszosc darmowych modeli NIE wspiera tool use, wiec nie kazdy model zadziala.
+
+#### Zalecane: OpenRouter auto-router (darmowy, 0 konfiguracji)
+
+```json
+{
+  "agents": { "defaults": { "model": "openrouter/auto" } },
+  "providers": { "openrouter": { "api_key": "sk-or-...", "api_base": "https://openrouter.ai/api/v1" } }
+}
+```
+
+Auto-router sam wybiera najlepszy dostepny darmowy model z obsluga tool use. Konto na [openrouter.ai](https://openrouter.ai) — bez karty, za darmo.
+
+#### Alternatywa: Groq (ultra szybki, darmowy)
+
+```json
+{
+  "agents": { "defaults": { "model": "groq/openai/gpt-oss-20b" } },
+  "providers": { "groq": { "api_key": "gsk_...", "api_base": "https://api.groq.com/openai/v1" } }
+}
+```
+
+Konto na [console.groq.com](https://console.groq.com) — bez karty, za darmo.
+
+#### Modele ktore NIE dzialaja z PicoClaw
+
+| Model | Problem |
+|-------|---------|
+| `deepseek/deepseek-r1-*` | Brak tool use (model reasoning) |
+| `nousresearch/hermes-3-llama-3.1-405b:free` | Brak tool use na darmowym tierze |
+| `groq/meta-llama/llama-4-maverick-*` | Za duzy na darmowy tier Groq (wymaga 13k+ TPM, limit 6k) |
+| `groq/moonshotai/kimi-k2-instruct` | Za duzy na darmowy tier Groq |
+| `groq/llama-3.3-70b-versatile` | Bledny format tool calling (generuje XML zamiast JSON) |
+
+#### Groq — ograniczenia darmowego tieru
+
+Groq darmowy ma limit **6-12k tokenow na minute (TPM)**. PicoClaw wysyla ~3.5k tokenow per request (system prompt + 13 narzedzi). Dziala tylko z malymi modelami:
+
+| Model | Status |
+|-------|--------|
+| `groq/openai/gpt-oss-20b` | ✅ Dziala — najinteligentniejszy co miesci sie w limicie |
+| `groq/meta-llama/llama-4-scout-17b-16e-instruct` | ✅ Dziala — szybki ale mniej inteligentny |
+| `groq/qwen/qwen3-32b` | ❌ Rate limit (6k TPM) |
+| `groq/meta-llama/llama-4-maverick-*` | ❌ Rate limit (wymaga 13k+) |
+
+#### Wiele konfiguracji (szybkie przelaczanie)
+
+Mozesz trzymac kilka configow i przelaczac jednym poleceniem:
+
+```bash
+# Przelacz na config do kodowania
+ssh mikrus 'cp /opt/stacks/picoclaw/config/config-coding.json /opt/stacks/picoclaw/config/config.json && docker restart picoclaw'
+
+# Wróc na domyslny
+ssh mikrus 'cp /opt/stacks/picoclaw/config/config-default.json /opt/stacks/picoclaw/config/config.json && docker restart picoclaw'
+```
+
+---
 
 ### Tryb automatyczny (--yes)
 
