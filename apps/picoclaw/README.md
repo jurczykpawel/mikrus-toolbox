@@ -167,11 +167,31 @@ Format konfiguracji PicoClaw v0.1.2 sklada sie z trzech sekcji:
 }
 ```
 
-### Wybor modelu — co dziala, co nie
+### Wybor modelu
 
-PicoClaw to **agent z narzedziami** (tool use / function calling). Wiekszosc darmowych modeli NIE wspiera tool use, wiec nie kazdy model zadziala.
+PicoClaw to **agent z narzedziami** (tool use / function calling). Model musi wspierac tool use — nie kazdy to potrafi.
 
-#### Zalecane: OpenRouter auto-router (darmowy, 0 konfiguracji)
+#### Modele platne (zalecane — dzialaja bez niespodzianek)
+
+Platne modele maja pelne tool use, brak rate limitow, najlepsza jakosc. Przez OpenRouter (jedno API, jedno konto) masz dostep do wszystkich:
+
+| Model | Koszt ~100 wiadomosci | Do czego |
+|-------|----------------------|----------|
+| `anthropic/claude-sonnet-4-20250514` | ~$0.30 | Najlepsza jakosc, swietny po polsku |
+| `openai/gpt-4o` | ~$0.25 | Szybki, dobry ogolnie |
+| `google/gemini-2.0-flash` | ~$0.03 | Ultra tani, szybki, dobra jakosc |
+| `qwen/qwen3.5-397b-a17b` | ~$0.10 | Tani, 262k kontekst, multimodalny |
+
+```json
+{
+  "agents": { "defaults": { "model": "google/gemini-2.0-flash" } },
+  "providers": { "openrouter": { "api_key": "sk-or-...", "api_base": "https://openrouter.ai/api/v1" } }
+}
+```
+
+Gemini Flash to najlepszy stosunek jakosc/cena — ~$0.03 za 100 wiadomosci, tool use, szybki.
+
+#### Modele darmowe — OpenRouter auto-router
 
 ```json
 {
@@ -180,9 +200,9 @@ PicoClaw to **agent z narzedziami** (tool use / function calling). Wiekszosc dar
 }
 ```
 
-Auto-router sam wybiera najlepszy dostepny darmowy model z obsluga tool use. Konto na [openrouter.ai](https://openrouter.ai) — bez karty, za darmo.
+Auto-router sam wybiera najlepszy dostepny darmowy model z obsluga tool use. Konto na [openrouter.ai](https://openrouter.ai) — bez karty, za darmo. Wada: darmowe modele bywaja rate-limitowane w godzinach szczytu.
 
-#### Alternatywa: Groq (ultra szybki, darmowy)
+#### Modele darmowe — Groq (ultra szybki)
 
 ```json
 {
@@ -191,9 +211,21 @@ Auto-router sam wybiera najlepszy dostepny darmowy model z obsluga tool use. Kon
 }
 ```
 
-Konto na [console.groq.com](https://console.groq.com) — bez karty, za darmo.
+Konto na [console.groq.com](https://console.groq.com) — bez karty, za darmo. Ultra szybkie odpowiedzi, ale ograniczone limity tokenow.
 
-#### Modele ktore NIE dzialaja z PicoClaw
+#### Darmowe modele — co dziala, co nie
+
+PicoClaw wysyla ~3.5k tokenow per request (system prompt + 13 narzedzi). Wiele darmowych modeli nie wspiera tool use lub ma za niskie limity.
+
+**Dzialajace darmowe modele:**
+
+| Model | Provider | Uwagi |
+|-------|----------|-------|
+| `openrouter/auto` | OpenRouter | ✅ Najlatwiejszy — sam dobiera model |
+| `groq/openai/gpt-oss-20b` | Groq | ✅ Szybki, dobra jakosc |
+| `groq/meta-llama/llama-4-scout-17b-16e-instruct` | Groq | ✅ Szybki, slabsza jakosc |
+
+**Modele ktore NIE dzialaja:**
 
 | Model | Problem |
 |-------|---------|
@@ -201,18 +233,7 @@ Konto na [console.groq.com](https://console.groq.com) — bez karty, za darmo.
 | `nousresearch/hermes-3-llama-3.1-405b:free` | Brak tool use na darmowym tierze |
 | `groq/meta-llama/llama-4-maverick-*` | Za duzy na darmowy tier Groq (wymaga 13k+ TPM, limit 6k) |
 | `groq/moonshotai/kimi-k2-instruct` | Za duzy na darmowy tier Groq |
-| `groq/llama-3.3-70b-versatile` | Bledny format tool calling (generuje XML zamiast JSON) |
-
-#### Groq — ograniczenia darmowego tieru
-
-Groq darmowy ma limit **6-12k tokenow na minute (TPM)**. PicoClaw wysyla ~3.5k tokenow per request (system prompt + 13 narzedzi). Dziala tylko z malymi modelami:
-
-| Model | Status |
-|-------|--------|
-| `groq/openai/gpt-oss-20b` | ✅ Dziala — najinteligentniejszy co miesci sie w limicie |
-| `groq/meta-llama/llama-4-scout-17b-16e-instruct` | ✅ Dziala — szybki ale mniej inteligentny |
-| `groq/qwen/qwen3-32b` | ❌ Rate limit (6k TPM) |
-| `groq/meta-llama/llama-4-maverick-*` | ❌ Rate limit (wymaga 13k+) |
+| `groq/llama-3.3-70b-versatile` | Bledny format tool calling (XML zamiast JSON) |
 
 #### Wiele konfiguracji (szybkie przelaczanie)
 
