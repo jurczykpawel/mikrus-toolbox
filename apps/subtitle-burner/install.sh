@@ -6,13 +6,18 @@
 # https://github.com/jurczykpawel/subtitle-burner
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=900  # Next.js + Bun + FFmpeg + Nginx + PostgreSQL + Redis + MinIO
+# IMAGE_SIZE_MB=900  # Next.js + Bun + FFmpeg + Nginx + MinIO (+ opcjonalnie PG/Redis)
 #
 # ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
-#     6 kontenerów: web, worker (FFmpeg), nginx, postgres, redis, minio.
+#     Kontenery: web, worker (FFmpeg), nginx, minio + opcjonalnie postgres/redis.
 #     Na Mikrus 2.1 (1GB RAM) nie uruchomi się poprawnie.
 #
 # Stack: Next.js (Bun) + BullMQ Worker (FFmpeg) + PostgreSQL 16 + Redis 7 + MinIO + Nginx
+#
+# Zmienne środowiskowe (przekazywane przez deploy.sh):
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - zewnętrzna baza (opcjonalne)
+#   BUNDLED_DB_TYPE - "postgres" jeśli deploy.sh bundluje bazę
+#   DOMAIN - domena (opcjonalne)
 
 set -e
 
@@ -43,11 +48,90 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
     echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                       ║"
     echo "║                                                              ║"
-    echo "║  6 kontenerów: web, worker (FFmpeg), postgres, redis, minio. ║"
+    echo "║  Kontenery: web, worker (FFmpeg), nginx, minio + PG/Redis.   ║"
     echo "║  Na Mikrus 2.1 nie uruchomi się poprawnie!                   ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
+fi
+
+# =============================================================================
+# 1. BAZA DANYCH (PostgreSQL - external lub bundled)
+# =============================================================================
+DB_PORT=${DB_PORT:-5432}
+
+if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASS" ] && [ -n "$DB_NAME" ]; then
+    echo "✅ PostgreSQL: zewnętrzna ($DB_HOST:$DB_PORT/$DB_NAME)"
+    DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    PG_PASS="$DB_PASS"
+    PG_USER="$DB_USER"
+    PG_DB="$DB_NAME"
+    USE_BUNDLED_PG=false
+else
+    echo "✅ PostgreSQL: bundled (kontener)"
+    PG_PASS=$(openssl rand -hex 16)
+    PG_USER="subtitle_burner"
+    PG_DB="subtitle_burner"
+    DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@postgres:5432/${PG_DB}"
+    USE_BUNDLED_PG=true
+fi
+
+# =============================================================================
+# 2. REDIS (external vs bundled via redis-detect.sh)
+# =============================================================================
+source /opt/mikrus-toolbox/lib/redis-detect.sh 2>/dev/null || true
+if type detect_redis &>/dev/null; then
+    detect_redis "auto" "redis"
+else
+    REDIS_HOST="redis"
+    echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
+fi
+
+# Shared Redis: jeśli bundled wybrany, użyj redis-shared
+if [ "$REDIS_HOST" = "redis" ]; then
+    REDIS_SHARED_DIR="/opt/stacks/redis-shared"
+    if [ ! -f "$REDIS_SHARED_DIR/docker-compose.yaml" ]; then
+        echo "📦 Instaluję współdzielony Redis..."
+        sudo mkdir -p "$REDIS_SHARED_DIR"
+        cat <<'REDISEOF' | sudo tee "$REDIS_SHARED_DIR/docker-compose.yaml" > /dev/null
+services:
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
+    volumes:
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+REDISEOF
+        sudo docker compose -f "$REDIS_SHARED_DIR/docker-compose.yaml" up -d
+        sleep 2
+    fi
+    REDIS_HOST="host-gateway"
+    echo "✅ Redis: współdzielony (127.0.0.1:6379)"
+fi
+
+# Redis URL dla Subtitle Burner
+if [ "$REDIS_HOST" = "host-gateway" ]; then
+    REDIS_URL="redis://host.docker.internal:6379"
+else
+    REDIS_URL="redis://${REDIS_HOST}:6379"
 fi
 
 # Domain
@@ -75,7 +159,6 @@ fi
 
 # Generuj sekrety
 AUTH_SECRET=$(openssl rand -base64 32)
-PG_PASS=$(openssl rand -hex 16)
 MINIO_ACCESS=$(openssl rand -hex 12)
 MINIO_SECRET=$(openssl rand -hex 24)
 
@@ -93,15 +176,15 @@ NEXT_PUBLIC_APP_URL=$APP_URL
 NODE_ENV=production
 
 # PostgreSQL
-POSTGRES_USER=subtitle_burner
+POSTGRES_USER=$PG_USER
 POSTGRES_PASSWORD=$PG_PASS
-POSTGRES_DB=subtitle_burner
-POSTGRES_PORT=5432
-DATABASE_URL=postgresql://subtitle_burner:${PG_PASS}@postgres:5432/subtitle_burner
+POSTGRES_DB=$PG_DB
+POSTGRES_PORT=$DB_PORT
+DATABASE_URL=$DATABASE_URL
 
 # Redis
 REDIS_PORT=6379
-REDIS_URL=redis://redis:6379
+REDIS_URL=$REDIS_URL
 
 # MinIO (object storage)
 MINIO_ENDPOINT=minio
@@ -126,7 +209,9 @@ echo "✅ Konfiguracja wygenerowana"
 # Nginx config (z repo)
 sudo cp "$STACK_DIR/repo/docker/nginx.conf" "$STACK_DIR/nginx.conf" 2>/dev/null || true
 
-# Generuj docker-compose.yaml
+# =============================================================================
+# GENERUJ docker-compose.yaml
+# =============================================================================
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   nginx:
@@ -150,13 +235,34 @@ services:
       dockerfile: docker/Dockerfile
     env_file: .env
     restart: always
+EOF
+
+# depends_on dla web
+if [ "$USE_BUNDLED_PG" = true ]; then
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
+EOF
+else
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
+    depends_on:
+      minio:
+        condition: service_healthy
+EOF
+fi
+
+# Extra hosts (dla host-gateway Redis)
+if [ "$REDIS_HOST" = "host-gateway" ]; then
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+EOF
+fi
+
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -174,51 +280,21 @@ services:
       dockerfile: docker/Dockerfile.worker
     env_file: .env
     restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+EOF
+
+# Extra hosts dla worker
+if [ "$REDIS_HOST" = "host-gateway" ]; then
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+EOF
+fi
+
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
     deploy:
       resources:
         limits:
           memory: 512M
-
-  postgres:
-    image: postgres:16-alpine
-    restart: always
-    environment:
-      POSTGRES_USER: subtitle_burner
-      POSTGRES_PASSWORD: $PG_PASS
-      POSTGRES_DB: subtitle_burner
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U subtitle_burner"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 64M
 
   minio:
     image: minio/minio
@@ -239,28 +315,66 @@ services:
         limits:
           memory: 256M
 
+EOF
+
+# Bundled PostgreSQL (jeśli nie external)
+if [ "$USE_BUNDLED_PG" = true ]; then
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: $PG_USER
+      POSTGRES_PASSWORD: $PG_PASS
+      POSTGRES_DB: $PG_DB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $PG_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+EOF
+fi
+
+# Volumes
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
 volumes:
-  postgres_data:
-  redis_data:
   minio_data:
 EOF
+
+if [ "$USE_BUNDLED_PG" = true ]; then
+cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
+  postgres_data:
+EOF
+fi
 
 # Buduj i uruchamiaj
 echo "🔨 Buduję obrazy Docker (to może potrwać kilka minut)..."
 sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
-sudo docker compose up -d
 
-# Czekaj na PostgreSQL
-echo "⏳ Czekam na PostgreSQL..."
-for i in $(seq 1 12); do
-    if sudo docker compose exec -T postgres pg_isready -U subtitle_burner > /dev/null 2>&1; then
-        break
-    fi
-    sleep 5
-done
+# Start bundled DB first
+if [ "$USE_BUNDLED_PG" = true ]; then
+    sudo docker compose up -d postgres
+    echo "⏳ Czekam na PostgreSQL..."
+    for i in $(seq 1 12); do
+        if sudo docker compose exec -T postgres pg_isready -U "$PG_USER" > /dev/null 2>&1; then
+            break
+        fi
+        sleep 5
+    done
+fi
+
+sudo docker compose up -d
 
 # Migracje bazy danych
 echo "📦 Uruchamiam migracje bazy danych..."
+sleep 5
 sudo docker compose exec -T web ./node_modules/.bin/prisma migrate deploy --schema=/app/packages/database/prisma/schema.prisma || {
     echo "⚠️  Migracje nie powiodły się (pierwszy start może wymagać retry)."
     echo "   Spróbuj ręcznie: cd $STACK_DIR && sudo docker compose exec web ./node_modules/.bin/prisma migrate deploy --schema=/app/packages/database/prisma/schema.prisma"
@@ -294,7 +408,6 @@ echo "════════════════════════�
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Aplikacja:  https://$DOMAIN"
-    echo "🔗 API (docs): https://$DOMAIN/api/health"
 elif [ "$DOMAIN" = "-" ]; then
     echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
 else
@@ -302,16 +415,16 @@ else
     echo "   http://localhost:$PORT"
 fi
 echo ""
+if [ "$USE_BUNDLED_PG" = true ]; then
+    echo "   Baza: PostgreSQL bundled (kontener)"
+else
+    echo "   Baza: PostgreSQL external ($DB_HOST:$DB_PORT/$DB_NAME)"
+fi
+echo "   Redis: $REDIS_HOST"
+echo ""
 echo "🔑 Sekrety zapisane w: $STACK_DIR/.env"
 echo ""
 echo "📋 Następne kroki:"
 echo "   1. Otwórz aplikację i zarejestruj konto"
 echo "   2. (Opcjonalnie) Skonfiguruj SMTP w .env → magic link auth"
 echo "   3. Wgraj wideo i przetestuj wypalanie napisów"
-echo ""
-echo "📋 Funkcje:"
-echo "   - 8 szablonów napisów (Classic, Cinematic, Bold Box...)"
-echo "   - 6 animacji (word-highlight, karaoke, bounce...)"
-echo "   - Transkrypcja AI (Whisper w przeglądarce)"
-echo "   - Server-side rendering przez FFmpeg (worker)"
-echo "   - REST API (21 endpointów)"
