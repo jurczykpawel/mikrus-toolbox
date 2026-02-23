@@ -553,7 +553,7 @@ tests/           → Testy automatyczne
 
 ## 🙏 Podziękowania
 
-- [Mikrus](https://mikr.us) — tani polski VPS, który zainspirował ten projekt
+- [Mikrus](https://mikr.us/?r=pavvel) — tani polski VPS, który zainspirował ten projekt
 - [Caddy](https://caddyserver.com/) — reverse proxy z automatycznym HTTPS
 - [Docker](https://www.docker.com/) — konteneryzacja, która to wszystko umożliwia
 - [Model Context Protocol](https://modelcontextprotocol.io/) — standard integracji AI z narzędziami

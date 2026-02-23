@@ -45,7 +45,7 @@ Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
 | Converter for Media (WebP) | Auto-konwersja obrazów do WebP (-25-35% vs JPEG) | plugin + ręczna konfig. |
 
 **Porównanie cenowe:** Kinsta od $35/mies, WP Engine od $25/mies, Redis addon u Kinsta $100/mies.
-Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
+Na [Mikrusie](https://mikr.us/?r=pavvel): **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
 
 ### Benchmark: TTFB
 
