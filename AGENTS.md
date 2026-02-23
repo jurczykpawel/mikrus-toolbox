@@ -291,6 +291,31 @@ sudo docker compose up -d
 - Nigdy nie loguj sekretów
 - Sekrety w env vars, konfiguracje w `~/.config/mikrus/`
 
+### Checklist: dodawanie nowej aplikacji
+
+Przy każdej nowej aplikacji wykonaj **wszystkie** poniższe kroki:
+
+1. **Reużywanie zasobów** — NIE bundluj na sztywno DB/Redis w kontenerze:
+   - **PostgreSQL/MySQL**: przyjmuj `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME` z deploy.sh (external DB). Dodawaj bundled kontener tylko gdy `BUNDLED_DB_TYPE` jest ustawione. Wzorzec: `apps/n8n/install.sh`, `apps/listmonk/install.sh`.
+   - **Redis**: używaj `lib/redis-detect.sh` (`detect_redis "auto" "redis"`) → shared Redis jeśli istnieje na hoście, bundled jeśli nie. Shared Redis w `/opt/stacks/redis-shared/`. Wzorzec: `apps/wordpress/install.sh`.
+   - **SQLite**: jeśli apka wspiera SQLite, preferuj jako domyślne (zero config). Wzorzec: `apps/wordpress/install.sh` z `WP_DB_MODE=sqlite`.
+   - Apka bez DB? Nie dodawaj DB.
+
+2. **Pliki do stworzenia**:
+   - `apps/<app>/install.sh` (chmod +x)
+   - `apps/<app>/README.md`
+
+3. **Pliki do zaktualizowania**:
+   - `README.md` — liczba aplikacji (w tytule, badge, nagłówku sekcji, spis treści, roadmap, footer) + wpis w tabeli aplikacji
+   - `CLAUDE.md` (= `AGENTS.md`) — sekcja "Aplikacje (N)" + lista nazw
+
+4. **Oba repozytoria** — dodaj appkę do **mikrus-toolbox** I **stackpilot**:
+   - Skopiuj `install.sh` + `README.md` do `stackpilot/apps/<app>/`
+   - Zaktualizuj `stackpilot/AGENTS.md` (liczba + lista)
+   - Commit + push stackpilot
+
+5. **Commit mikrus-toolbox** — osobny commit per appka, push na main (lub branch jeśli repo jest prywatne).
+
 ## Więcej informacji
 
 Szczegółowa dokumentacja → **`GUIDE.md`** (referencja operacyjna):
