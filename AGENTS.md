@@ -77,11 +77,16 @@ Alternatywa bez `start`: `curl -fsSL https://get.docker.com | sh`
 
 ## Domeny Cytrus (MCP: `setup_domain`)
 
-Konfiguracja darmowej subdomeny Mikrusa (*.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev):
+Konfiguracja darmowej subdomeny Mikrusa (*.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev, *.cytr.us):
 
 - **Po `deploy_app` z `domain_type=cytrus`** — domena konfigurowana automatycznie, nie trzeba nic robić
 - **Po `deploy_custom_app`** — użyj `setup_domain { port: PORT, domain: "auto" }` żeby przypisać domenę
 - **Ręcznie** — `./local/cytrus-domain.sh DOMENA PORT [SSH]`
+
+**Ograniczenia API domen Mikrusa:**
+- API pozwala tylko **dodawać** domeny — usuwanie jest możliwe WYŁĄCZNIE z panelu: https://mikr.us/panel/?a=cytrus
+- Domena **\*.cytr.us** NIE jest dostępna przez API — można ją dodać tylko ręcznie z panelu
+- Jeśli limit domen jest przekroczony, poproś użytkownika o ręczne usunięcie niepotrzebnych domen z panelu
 
 ## Backup (MCP: `setup_backup`)
 

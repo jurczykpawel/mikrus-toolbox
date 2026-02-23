@@ -49,11 +49,34 @@ Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shar
 
 ### Benchmark: TTFB
 
-| Metryka | Shared hosting | Mikrus WP |
-|---|---|---|
-| TTFB (strona główna) | 800-3000ms | **~200ms** (cache HIT) |
-| TTFB (cold, bez cache) | 2000-5000ms | **300-400ms** |
-| TTFB z Breakdance/Elementor | 2000-5000ms (session kill cache) | **~200ms** (session bypass) |
+| Metryka | Shared hosting | Mikrus 2.1 (1GB) | Mikrus 1.0 (384MB) |
+|---|---|---|---|
+| TTFB (strona główna, cache HIT) | 800-3000ms | **~200ms** | **~35ms** (CF) |
+| TTFB (cold, bez cache) | 2000-5000ms | **300-400ms** | **~80ms** |
+| TTFB z Breakdance/Elementor | 2000-5000ms | **~200ms** | **~40ms** (CF) |
+
+### Benchmark: Mikrus 1.0 (perf-test.sh, 20 req × 4 ścieżki, concurrency 5)
+
+Test na wp.automagicznie.pl — WordPress SQLite + Redis + Nginx + Cloudflare:
+
+| Ścieżka | TTFB avg | TTFB p95 | Total avg | Rozmiar |
+|---|---|---|---|---|
+| `/` (strona główna) | **44ms** | 65ms | 56ms | 64.7KB |
+| `/hello-world/` (post) | **39ms** | 61ms | 67ms | 87.1KB |
+| `/sample-page/` (podstrona) | **39ms** | 51ms | 53ms | 64.3KB |
+| `/comments/feed/` (RSS) | **32ms** | 43ms | 33ms | 1.6KB |
+
+**Podsumowanie:** 80 requestów, 100% success rate, avg TTFB **37ms**, P95 **47ms**, throughput **55.2 req/s**. Verdict: **Excellent**.
+
+Zasoby po instalacji (Mikrus 1.0, 384MB RAM, 5GB dysk):
+
+| Zasób | Użycie |
+|---|---|
+| RAM | 145MB / 384MB (238MB wolne) |
+| WordPress PHP-FPM | 83MB |
+| Nginx | 6MB |
+| Redis | 7MB |
+| Dysk wolny | 1.4GB (na media i wtyczki) |
 
 ### Porównanie z polskimi hostingami WordPress
 
@@ -61,6 +84,7 @@ Ceny odnowienia (nie promocyjne pierwszego roku). Plany porównywalne z 1 GB RAM
 
 | Hosting | Cena/rok | RAM | Redis | Server cache | Auto-purge | WooCommerce rules |
 |---|---|---|---|---|---|---|
+| **Mikrus 1.0 PRO + Toolbox** | **35 PLN/rok + 60 PLN PRO** | 384 MB | wbudowany | FastCGI 24h | Nginx Helper | auto |
 | **Mikrus 2.1 + Toolbox** | **75 PLN** | 1 GB | wbudowany | FastCGI 24h | Nginx Helper | auto |
 | Smarthost Pro Mini | ~170 PLN | 1 GB | tak | LSCache | plugin | ręcznie |
 | LH.pl Orange | 199 PLN* | 1 GB | **brak** | **brak** | brak | brak |
@@ -83,6 +107,15 @@ Ceny odnowienia (nie promocyjne pierwszego roku). Plany porównywalne z 1 GB RAM
 - **Serwer, nie tylko hosting WP** — na tym samym Mikrusie obok WordPressa postawisz strony statyczne, n8n, Uptime Kuma, Vaultwarden, NocoDB i [25 innych aplikacji](../../AGENTS.md). Shared hosting = tylko WordPress
 
 ## Instalacja
+
+### Wymagania wstępne
+
+Docker musi być zainstalowany na serwerze. Zalecana instalacja przez wbudowany skrypt Mikrusa:
+
+```bash
+ssh -t mikrus 'start'
+# Odpowiadaj T (Tak) na każde pytanie — kluczowy jest krok z Dockerem
+```
 
 ### Tryb MySQL (domyślny)
 
@@ -290,12 +323,53 @@ Dane w `/opt/stacks/wordpress/`:
 - `redis-data/` - cache Redis
 - `docker-compose.yaml`
 
+## Mikrus 1.0 (384MB RAM, 5GB dysk)
+
+WordPress działa na Mikrus 1.0 z upgrade Mikrus PRO (60 PLN jednorazowo — dodaje Docker i więcej). Tryb SQLite + Redis bundled.
+
+**Uwaga:** Zalecana instalacja Dockera przez skrypt `start` na serwerze (nie `curl get.docker.com`) — instaluje kompatybilną wersję.
+
+### Dysk — realny rozmiar
+
+Mikrus 1.0 reklamuje 5GB dysku, ale realnie:
+
+| Składnik | Rozmiar |
+|----------|---------|
+| Partycja widziana przez system | 4.9GB |
+| System operacyjny (Debian) | ~1.8GB |
+| **Wolne po czyszczeniu** | **~3GB** |
+
+Po czyszczeniu (`apt clean`, usunięcie starych journali) odzyskuje się ~1GB.
+
+### Ile zajmuje WordPress?
+
+| Składnik | Rozmiar |
+|----------|---------|
+| Docker + obrazy (WP + Nginx + Redis) | ~1.5GB |
+| WordPress core + wtyczki + config | ~150MB |
+| SQLite baza (1000 postów) | ~10-20MB |
+| **Wolne na media** | **~1.4GB** |
+
+### Pojemność bloga (przy ~2GB na media)
+
+| Typ wpisu | Średni rozmiar | Ile się zmieści |
+|-----------|---------------|-----------------|
+| Tekst bez zdjęć | ~5KB | tysiące (limit to baza SQLite) |
+| Wpis + 1 zdjęcie (skompresowane ~150KB) | ~155KB | ~12 000 |
+| Wpis + 3 zdjęcia | ~460KB | ~4 000 |
+| Wpis + miniaturka + zdjęcie w treści | ~310KB | ~6 000 |
+
+**Wniosek:** Na bloga firmowego, wizytówkę, landing page — spokojnie wystarczy. Przy 1-2 postach tygodniowo z 1-2 zdjęciami, latami nie zapełnisz dysku. Problematyczny byłby dopiero blog fotograficzny lub sklep WooCommerce z setkami zdjęć produktów.
+
+Testowane na rzeczywistym Mikrus 1.0 z Docker boostem. WordPress SQLite + Redis + Nginx + Cloudflare. Benchmark: avg TTFB **37ms**, P95 **47ms** — verdict **Excellent**.
+
 ## RAM Profiling
 
 Skrypt automatycznie wykrywa RAM i dostosowuje PHP-FPM:
 
 | RAM serwera | FPM workers | WP limit | Nginx limit |
 |---|---|---|---|
+| 384MB (Mikrus 1.0) | 3 | 150M | 20M |
 | 512MB | 4 | 192M | 32M |
 | 1GB | 8 | 256M | 48M |
 | 2GB+ | 15 | 256M | 64M |

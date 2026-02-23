@@ -476,6 +476,22 @@ if [ -n "$IMAGE_SIZE" ]; then
     REQUIRED_DISK=$((IMAGE_SIZE + IMAGE_SIZE / 5))
 fi
 
+# Sprawdź czy Docker jest zainstalowany
+if ! server_exec_timeout 10 "docker --version" &>/dev/null; then
+    echo ""
+    echo -e "${RED}❌ Docker nie jest zainstalowany na serwerze!${NC}"
+    echo ""
+    echo "   Docker jest wymagany do działania toolboxa."
+    echo "   Uruchom skrypt konfiguracyjny na serwerze:"
+    echo ""
+    echo -e "   ${BLUE}ssh -t $SSH_ALIAS 'start'${NC}"
+    echo ""
+    echo "   Skrypt zapyta o kilka rzeczy — odpowiadaj T (Tak) na każde pytanie."
+    echo ""
+    echo "   Po zakończeniu skryptu uruchom deploy ponownie."
+    exit 1
+fi
+
 # Sprawdź zasoby na serwerze
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
