@@ -22,6 +22,8 @@ yarn-error.log*
 # Project-specific
 local/gateflow-metrics*.csv
 benchmark-*/
+perf-*.html
+perf-*.json
 ANALYSIS.md
 
 # MCP Server
