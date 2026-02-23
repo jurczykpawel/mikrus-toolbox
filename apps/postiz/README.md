@@ -5,12 +5,12 @@ Alternatywa dla Buffer/Hootsuite. Planuj posty na Twitter/X, LinkedIn, Instagram
 ## Wymagania
 
 - **Dedykowany serwer** — Postiz wymaga osobnego Mikrusa (nie instaluj obok innych ciężkich usług!)
-- **RAM:** minimum 4GB (Mikrus 3.5+), zużycie ~2.5-3GB (7 kontenerów)
-- **Dysk:** ~5GB (obrazy Docker)
+- **RAM:** minimum 4GB (Mikrus 3.5+), zużycie ~3.5-4GB (4-6 kontenerów)
+- **Dysk:** ~3.5GB (obrazy Docker)
 - **Domena:** wymagana (HTTPS dla OAuth callback)
 
-> Postiz od v2.12 wymaga Temporal (workflow engine) + Elasticsearch + osobny PostgreSQL.
-> To 7 kontenerów — zbyt dużo żeby współdzielić serwer z innymi usługami.
+> Postiz od v2.12 wymaga Temporal (workflow engine) + osobny PostgreSQL.
+> Postiz sam zużywa ~3GB RAM (webpack build peak ~2.2GB) — zbyt dużo żeby współdzielić serwer z innymi usługami.
 
 ## Instalacja
 
@@ -27,17 +27,16 @@ POSTIZ_REDIS=external ./local/deploy.sh postiz --ssh=<alias> --domain-type=cytru
 
 Domyślnie PostgreSQL, Redis i Temporal są bundlowane automatycznie — nie trzeba kupować zewnętrznej bazy. Jeśli masz już wykupiony PostgreSQL lub Redis na serwerze, możesz je reużyć.
 
-## Stack (5-7 kontenerów)
+## Stack (4-6 kontenerów)
 
 | Kontener | Obraz | RAM | Rola | Bundled? |
 |----------|-------|-----|------|----------|
-| postiz | ghcr.io/gitroomhq/postiz-app:latest | ~1.5GB | Aplikacja (Next.js + Nest.js + nginx) | zawsze |
+| postiz | ghcr.io/gitroomhq/postiz-app:latest | ~3GB | Aplikacja (Next.js + Nest.js + nginx) | zawsze |
 | postiz-postgres | postgres:17-alpine | ~256MB | Baza danych Postiz | domyślnie (pomijany z `--db=custom`) |
 | postiz-redis | redis:7.2-alpine | ~128MB | Cache + queues | domyślnie (pomijany z `POSTIZ_REDIS=external`) |
 | temporal | temporalio/auto-setup:1.28.1 | ~512MB | Workflow engine | zawsze |
-| temporal-elasticsearch | elasticsearch:7.17.27 | ~512MB | Wyszukiwanie Temporal | zawsze |
-| temporal-postgresql | postgres:16-alpine | ~128MB | Baza danych Temporal | zawsze |
-| temporal-ui | temporalio/ui:2.34.0 | ~128MB | Panel Temporal (localhost:8080) | zawsze |
+| temporal-postgresql | postgres:16-alpine | ~256MB | Baza danych Temporal | zawsze |
+| temporal-ui | temporalio/ui:2.34.0 | ~256MB | Panel Temporal (localhost:8080) | zawsze |
 
 ## Po instalacji
 
@@ -111,11 +110,11 @@ Docs: [docs.postiz.com/public-api](https://docs.postiz.com/public-api/introducti
 
 ## Ograniczenia
 
-- **Dedykowany serwer** — 7 kontenerów, ~2.5-3GB RAM, nie współdziel z innymi usługami
+- **Dedykowany serwer** — 4-6 kontenerów, ~3.5-4GB RAM, nie współdziel z innymi usługami
 - **Wolny start** — Temporal + Next.js startują ~90-120s
 - **OAuth wymaga HTTPS** — większość platform wymaga HTTPS dla callback URL
 - **SSH tunnel bez domeny** — Postiz ustawia secure cookies, logowanie przez HTTP nie zadziała. Dodaj `NOT_SECURED=true` do docker-compose (tylko dev/tunnel!)
-- **Duże obrazy** — ~5GB na dysku (7 kontenerów)
+- **Duże obrazy** — ~3.5GB na dysku (4-6 kontenerów)
 
 ## Backup
 
