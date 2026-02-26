@@ -164,6 +164,17 @@ else
     fi
 fi
 
+# Włącz codzienny vacuum bazy (zapobiega rozrostowi DB)
+echo "Włączam codzienny vacuum bazy danych..."
+VACUUM_SQL="UPDATE settings SET value='{\"vacuum\": true, \"vacuum_cron_interval\": \"0 2 * * *\"}' WHERE key='maintenance.db';"
+{
+    if [ -n "$BUNDLED_DB_TYPE" ]; then
+        sudo docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+    else
+        PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+    fi
+} >/dev/null 2>&1 && echo "✅ Vacuum włączony (codziennie o 2:00)" || echo "⚠️  Nie udało się włączyć vacuum — skonfiguruj w Settings → Maintenance"
+
 # Caddy/HTTPS - only for real domains
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     if command -v mikrus-expose &> /dev/null; then
@@ -182,3 +193,6 @@ else
 fi
 echo "Default user: admin / listmonk"
 echo "👉 CONFIGURE YOUR SMTP SERVER IN SETTINGS TO SEND EMAILS."
+echo ""
+echo "📧 Po skonfigurowaniu SMTP — skonfiguruj domeny (DKIM, DMARC, bounce):"
+echo "   ./local/setup-listmonk-mail.sh twojadomena.pl"

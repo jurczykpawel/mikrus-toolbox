@@ -580,3 +580,5 @@ MIT — zobacz [LICENSE](LICENSE)
 ---
 
 *Self-hosted infrastructure toolkit for solopreneurs. Deploy 29 open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden and more) on a cheap VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+
+![](https://stats.techskills.academy/pixels/github?url=/readme/mikrus-toolbox)

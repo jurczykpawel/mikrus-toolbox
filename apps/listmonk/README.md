@@ -78,7 +78,17 @@ mikrus-expose newsletter.mojafirma.pl 9000
 1. Wejdź na `https://newsletter.mojafirma.pl`
 2. Zaloguj się: **admin** / **listmonk**
 3. **Zmień hasło!**
-4. Idź do Settings → SMTP i skonfiguruj serwer mailowy
+4. Skonfiguruj serwer mailowy — [szczegóły](#-konfiguracja-smtp)
+
+### Krok 5: Zabezpiecz formularze
+
+1. Settings → Security → Captcha → **ALTCHA: ON** (proof-of-work, blokuje boty)
+2. Subscribers → Lists → każda publiczna lista → Opt-in: **Double** (potwierdza email)
+3. Settings → Security → CORS Origins → domena landing page'a (jeśli formularz jest na innej domenie niż Listmonk)
+
+### Krok 6: Skonfiguruj domeny wysyłkowe
+
+DNS (SPF, DKIM, DMARC) + bounce handling + powiadomienia — [szczegóły](#%EF%B8%8F-konfiguracja-domeny-wysylkowej-dkim-dmarc-bounce)
 
 ---
 
@@ -94,6 +104,58 @@ Listmonk sam nie wysyła maili - potrzebujesz serwera SMTP:
 | **Własny serwer** | 0 zł | Ryzyko blacklisty |
 
 > 💡 **Rekomendacja:** Amazon SES - najtańszy przy skali, wymaga weryfikacji domeny.
+
+---
+
+## 🛡️ Konfiguracja domeny wysyłkowej (DKIM, DMARC, bounce)
+
+Po skonfigurowaniu SMTP uruchom skrypt konfiguracji:
+
+```bash
+# Pełny setup: DNS + Listmonk API + restart
+./local/setup-listmonk-mail.sh mojafirma.pl sklep.mojafirma.pl \
+    --listmonk-url=https://newsletter.mojafirma.pl --ssh=mikrus
+
+# Tylko DNS (bez konfiguracji Listmonka) — działa z dowolnym mailerem
+./local/setup-mail-domain.sh mojafirma.pl sklep.mojafirma.pl
+```
+
+**`setup-mail-domain.sh`** — uniwersalny skrypt DNS (działa z każdym mailerem):
+
+| Element | Co robi | Dlaczego ważne |
+|---|---|---|
+| **SPF** | Audyt istniejących rekordów | Bez SPF maile są odrzucane |
+| **DKIM** | Dodaje rekordy z SES/EmailLabs/innego do Cloudflare | Bez DKIM maile lądują w spamie |
+| **DMARC** | Dodaje politykę + cross-domain auth records | Chroni przed spoofingiem |
+| **Bounce guide** | Instrukcje SNS (jeśli podano --webhook-url) | Bez tego SES zawiesi konto |
+
+**`setup-listmonk-mail.sh`** — wrapper: wywołuje powyższy + dodaje:
+
+| Element | Co robi |
+|---|---|
+| **Bounce handling** | PUT /api/settings — SES webhook ON, count=1, action=blocklist |
+| **Powiadomienia** | PUT /api/settings — notification emails |
+| **Restart** | docker compose restart via --ssh=ALIAS |
+
+Wymaga wcześniejszej konfiguracji Cloudflare (`./local/setup-cloudflare.sh`) do automatycznego dodawania rekordów DNS.
+
+### Ręczna konfiguracja
+
+Jeśli nie chcesz używać skryptu, dodaj ręcznie w Cloudflare DNS:
+
+**DKIM (dla każdej domeny, z panelu SES/EmailLabs):**
+- 3 rekordy CNAME z konsoli SES (Authentication → DKIM)
+- 1 rekord CNAME/TXT z panelu EmailLabs
+
+**DMARC (dla każdej domeny):**
+```
+_dmarc.twojadomena.pl  TXT  "v=DMARC1; p=none; rua=mailto:dmarc-reports@twojadomena.pl"
+```
+
+**Bounce handling:**
+1. AWS SNS → topic `listmonk-bounces` → subscription HTTPS → `https://TWOJ-LISTMONK/webhooks/service/ses`
+2. AWS SES → każda domena → Notifications → Bounce + Complaint → topic `listmonk-bounces`
+3. Listmonk → Settings → Bounces → Enable SES, count=1, action=blocklist
 
 ---
 
