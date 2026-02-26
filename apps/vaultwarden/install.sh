@@ -9,7 +9,6 @@
 #
 # Opcjonalne zmienne środowiskowe:
 #   DOMAIN - domena dla Vaultwarden
-#   ADMIN_TOKEN - token dla panelu admina (jeśli brak, generowany automatycznie)
 
 set -e
 
@@ -31,20 +30,44 @@ else
     echo "⚠️  Brak domeny - używam localhost"
 fi
 
-# Admin token
-if [ -z "$ADMIN_TOKEN" ]; then
-    ADMIN_TOKEN=$(openssl rand -hex 32)
-    echo "✅ Wygenerowano Admin Token"
-else
-    echo "✅ Używam Admin Token z konfiguracji"
+# Admin panel (interaktywnie, domyslnie wylaczony)
+ADMIN_TOKEN_LINE=""
+if [ -z "$YES" ] && [ -t 0 ]; then
+    echo ""
+    read -p "🔐 Włączyć panel admina /admin? (N/t): " ENABLE_ADMIN
+    if [[ "$ENABLE_ADMIN" =~ ^[tTyY]$ ]]; then
+        # Generuj token
+        PLAIN_TOKEN=$(openssl rand -hex 32)
+
+        # Hashuj Argon2 (instaluj jesli brak)
+        if ! command -v argon2 &>/dev/null; then
+            echo "📦 Instaluję argon2..."
+            sudo apt-get install -y argon2 > /dev/null 2>&1 || { echo "⚠️  Nie udało się zainstalować argon2, zapisuję token plain text"; }
+        fi
+
+        if command -v argon2 &>/dev/null; then
+            HASHED_TOKEN=$(echo -n "$PLAIN_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4)
+            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$HASHED_TOKEN"
+        else
+            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$PLAIN_TOKEN"
+        fi
+
+        echo ""
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║  ⚠️  ZAPISZ TEN TOKEN — NIE DA SIĘ GO ODZYSKAĆ!            ║"
+        echo "╠══════════════════════════════════════════════════════════════╣"
+        echo "║  $PLAIN_TOKEN  ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "  Użyj go do logowania na /admin. W docker-compose zapisany jest"
+        echo "  tylko hash (Argon2) — oryginał musisz zachować sam (np. w Vaultwarden)."
+        echo ""
+        read -p "  Naciśnij Enter gdy zapiszesz token..." _
+    fi
 fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
-
-# Save admin token for reference
-echo "$ADMIN_TOKEN" | sudo tee .admin_token > /dev/null
-sudo chmod 600 .admin_token
 
 # Set domain URL
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
@@ -53,27 +76,45 @@ else
     DOMAIN_URL="http://localhost:$PORT"
 fi
 
-cat <<EOF | sudo tee docker-compose.yaml > /dev/null
-
+cat <<'COMPOSE' | sudo tee docker-compose.yaml > /dev/null
 services:
   vaultwarden:
     image: vaultwarden/server:latest
     restart: always
     ports:
-      - "$PORT:80"
+      - "PORT_PLACEHOLDER:80"
     environment:
-      - DOMAIN=$DOMAIN_URL
+      - DOMAIN=DOMAIN_PLACEHOLDER
       - SIGNUPS_ALLOWED=true
-      - ADMIN_TOKEN=$ADMIN_TOKEN
       - WEBSOCKET_ENABLED=true
+      # --- Admin panel ---
+      # Zeby wlaczyc recznie:
+      #   1. Wygeneruj token:        openssl rand -hex 32
+      #   2. Zahashuj (Argon2):       echo -n "TWOJ_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4
+      #   3. Odkomentuj i wklej hash: (jesli brak argon2: apt install argon2)
+      #   4. Restart:                 docker compose up -d
+      #   5. Loguj sie oryginalnym tokenem (nie hashem) na /admin
+      #   6. Po zakonczeniu pracy zakomentuj ADMIN_TOKEN i zrestartuj
+      #- ADMIN_TOKEN=$argon2id$v=19$m=65540,t=3,p=4$SALT$HASH
+ADMIN_TOKEN_PLACEHOLDER
     volumes:
       - ./data:/data
     deploy:
       resources:
         limits:
           memory: 128M
+COMPOSE
 
-EOF
+# Podmien placeholdery (sed, bo heredoc z <<'COMPOSE' nie interpoluje zmiennych)
+sudo sed -i "s|PORT_PLACEHOLDER|$PORT|" docker-compose.yaml
+sudo sed -i "s|DOMAIN_PLACEHOLDER|$DOMAIN_URL|" docker-compose.yaml
+
+# Admin token: wstaw aktywna linie lub usun placeholder
+if [ -n "$ADMIN_TOKEN_LINE" ]; then
+    sudo sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN_LINE|" docker-compose.yaml
+else
+    sudo sed -i "/ADMIN_TOKEN_PLACEHOLDER/d" docker-compose.yaml
+fi
 
 sudo docker compose up -d
 
@@ -107,8 +148,12 @@ else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-echo "   Admin panel: $DOMAIN_URL/admin"
-echo "   Admin token zapisany w: $STACK_DIR/.admin_token"
+if [ -n "$ADMIN_TOKEN_LINE" ]; then
+    echo "🔐 Admin panel WŁĄCZONY na /admin (token Argon2 w docker-compose)"
+else
+    echo "🔒 Admin panel WYŁĄCZONY (domyślnie)."
+    echo "   Instrukcja włączenia: $STACK_DIR/docker-compose.yaml (komentarze w pliku)"
+fi
 echo ""
 echo "📝 Następne kroki:"
 echo "   1. Utwórz konto w przeglądarce"
