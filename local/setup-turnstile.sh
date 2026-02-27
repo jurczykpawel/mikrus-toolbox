@@ -449,28 +449,28 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
         echo "📤 Dodaję klucze do serwera $SSH_ALIAS..."
 
         # Wyznacz ścieżki na podstawie domeny (multi-instance support)
-        # Nowa lokalizacja: /opt/stacks/gateflow*
+        # Nowa lokalizacja: /opt/stacks/sellf*
         INSTANCE_NAME="${DOMAIN%%.*}"
-        GATEFLOW_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
-        PM2_NAME="gateflow-${INSTANCE_NAME}"
+        SELLF_DIR="/opt/stacks/sellf-${INSTANCE_NAME}"
+        PM2_NAME="sellf-${INSTANCE_NAME}"
 
         # Sprawdź czy istnieje katalog instancji, jeśli nie - szukaj dalej
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/opt/stacks/gateflow"
-            PM2_NAME="gateflow"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/opt/stacks/sellf"
+            PM2_NAME="sellf"
         fi
         # Fallback do starej lokalizacji
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/root/gateflow-${INSTANCE_NAME}"
-            PM2_NAME="gateflow-${INSTANCE_NAME}"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/root/sellf-${INSTANCE_NAME}"
+            PM2_NAME="sellf-${INSTANCE_NAME}"
         fi
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/root/gateflow"
-            PM2_NAME="gateflow"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/root/sellf"
+            PM2_NAME="sellf"
         fi
 
-        ENV_FILE="$GATEFLOW_DIR/admin-panel/.env.local"
-        STANDALONE_ENV="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel/.env.local"
+        ENV_FILE="$SELLF_DIR/admin-panel/.env.local"
+        STANDALONE_ENV="$SELLF_DIR/admin-panel/.next/standalone/admin-panel/.env.local"
 
         # Sprawdź czy istnieje
         if server_exec "test -f $ENV_FILE" 2>/dev/null; then
@@ -483,9 +483,9 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
             echo -e "${GREEN}   ✅ Klucze dodane${NC}"
 
             # Restart PM2 z przeładowaniem zmiennych środowiskowych
-            echo "🔄 Restartuję GateFlow..."
+            echo "🔄 Restartuję Sellf..."
 
-            STANDALONE_DIR="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel"
+            STANDALONE_DIR="$SELLF_DIR/admin-panel/.next/standalone/admin-panel"
             # WAŻNE: użyj --interpreter node, NIE 'node server.js' w cudzysłowach (bash nie dziedziczy env)
             RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && unset HOSTNAME && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME=\${HOSTNAME:-::} && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
 
@@ -495,7 +495,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
                 echo -e "${YELLOW}   ⚠️  Restart nieudany - zrób ręcznie: pm2 restart $PM2_NAME${NC}"
             fi
         else
-            echo -e "${YELLOW}   ⚠️  Nie znaleziono .env.local - GateFlow nie zainstalowany?${NC}"
+            echo -e "${YELLOW}   ⚠️  Nie znaleziono .env.local - Sellf nie zainstalowany?${NC}"
         fi
     fi
 
@@ -505,14 +505,14 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
 
     # Sprawdź czy mamy konfigurację Supabase
     SUPABASE_TOKEN_FILE="$HOME/.config/supabase/access_token"
-    GATEFLOW_CONFIG="$HOME/.config/gateflow/supabase.env"
+    SELLF_CONFIG="$HOME/.config/sellf/supabase.env"
 
-    if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$GATEFLOW_CONFIG" ]; then
+    if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$SELLF_CONFIG" ]; then
         echo ""
         echo "🔧 Konfiguruję CAPTCHA w Supabase Auth..."
 
         SUPABASE_TOKEN=$(cat "$SUPABASE_TOKEN_FILE")
-        source "$GATEFLOW_CONFIG"  # Ładuje PROJECT_REF
+        source "$SELLF_CONFIG"  # Ładuje PROJECT_REF
 
         if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
             CAPTCHA_CONFIG=$(cat <<EOF

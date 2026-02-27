@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Mikrus Toolbox - Supabase SMTP Setup
-# Konfiguruje SMTP dla wysyłki emaili w GateFlow
+# Konfiguruje SMTP dla wysyłki emaili w Sellf
 # Author: Paweł (Lazy Engineer)
 #
 # UWAGA: Szablony email są konfigurowane automatycznie przez deploy.sh
@@ -17,7 +17,7 @@ set -e
 # Załaduj bibliotekę Supabase
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-source "$REPO_ROOT/lib/gateflow-setup.sh"
+source "$REPO_ROOT/lib/sellf-setup.sh"
 
 echo ""
 echo -e "${BLUE}📮 Konfiguracja SMTP dla Supabase${NC}"
@@ -83,8 +83,8 @@ read -sp "SMTP Password: " SMTP_PASS
 echo ""
 
 read -p "Adres nadawcy (np. noreply@twojadomena.pl): " SMTP_SENDER_EMAIL
-read -p "Nazwa nadawcy [GateFlow]: " SMTP_SENDER_NAME
-SMTP_SENDER_NAME="${SMTP_SENDER_NAME:-GateFlow}"
+read -p "Nazwa nadawcy [Sellf]: " SMTP_SENDER_NAME
+SMTP_SENDER_NAME="${SMTP_SENDER_NAME:-Sellf}"
 
 # =============================================================================
 # 4. ZAPISZ KONFIGURACJĘ

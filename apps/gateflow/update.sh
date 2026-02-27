@@ -5,9 +5,9 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   ./local/deploy.sh gateflow --ssh=mikrus --update
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --restart (restart bez aktualizacji)
+#   ./local/deploy.sh sellf --ssh=mikrus --update
+#   ./local/deploy.sh sellf --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz
+#   ./local/deploy.sh sellf --ssh=mikrus --update --restart (restart bez aktualizacji)
 #
 # Zmienne środowiskowe:
 #   BUILD_FILE - ścieżka do lokalnego pliku tar.gz (zamiast pobierania z GitHub)
@@ -35,44 +35,44 @@ done
 # =============================================================================
 # AUTO-DETEKCJA KATALOGU INSTALACJI
 # =============================================================================
-# Nowa lokalizacja: /opt/stacks/gateflow* (backup-friendly)
-# Stara lokalizacja: /root/gateflow* (dla kompatybilności)
+# Nowa lokalizacja: /opt/stacks/sellf* (backup-friendly)
+# Stara lokalizacja: /root/sellf* (dla kompatybilności)
 
-find_gateflow_dir() {
+find_sellf_dir() {
     local NAME="$1"
     # Exact match najpierw (dla rebrandu sellf-*, lub pełnych nazw)
     if [ -d "/opt/stacks/${NAME}" ]; then
         echo "/opt/stacks/${NAME}"
-    elif [ -d "/opt/stacks/gateflow-${NAME}" ]; then
-        echo "/opt/stacks/gateflow-${NAME}"
-    elif [ -d "/root/gateflow-${NAME}" ]; then
-        echo "/root/gateflow-${NAME}"
-    elif [ -d "/opt/stacks/gateflow" ]; then
-        echo "/opt/stacks/gateflow"
-    elif [ -d "/root/gateflow" ]; then
-        echo "/root/gateflow"
+    elif [ -d "/opt/stacks/sellf-${NAME}" ]; then
+        echo "/opt/stacks/sellf-${NAME}"
+    elif [ -d "/root/sellf-${NAME}" ]; then
+        echo "/root/sellf-${NAME}"
+    elif [ -d "/opt/stacks/sellf" ]; then
+        echo "/opt/stacks/sellf"
+    elif [ -d "/root/sellf" ]; then
+        echo "/root/sellf"
     fi
 }
 
 if [ -n "$INSTANCE" ]; then
-    INSTALL_DIR=$(find_gateflow_dir "$INSTANCE")
+    INSTALL_DIR=$(find_sellf_dir "$INSTANCE")
     # Jeśli katalog znaleziony po exact match (np. sellf-tsa), użyj INSTANCE jako PM2 name
     if [ -d "/opt/stacks/$INSTANCE" ] || [ -d "/root/$INSTANCE" ]; then
         PM2_NAME="$INSTANCE"
     else
-        PM2_NAME="gateflow-${INSTANCE}"
+        PM2_NAME="sellf-${INSTANCE}"
     fi
-elif ls -d /opt/stacks/gateflow-* &>/dev/null 2>&1; then
-    INSTALL_DIR=$(ls -d /opt/stacks/gateflow-* 2>/dev/null | head -1)
-    PM2_NAME="gateflow-${INSTALL_DIR##*-}"
-elif ls -d /root/gateflow-* &>/dev/null 2>&1; then
-    INSTALL_DIR=$(ls -d /root/gateflow-* 2>/dev/null | head -1)
-    PM2_NAME="gateflow-${INSTALL_DIR##*-}"
-elif [ -d "/opt/stacks/gateflow" ]; then
-    INSTALL_DIR="/opt/stacks/gateflow"
+elif ls -d /opt/stacks/sellf-* &>/dev/null 2>&1; then
+    INSTALL_DIR=$(ls -d /opt/stacks/sellf-* 2>/dev/null | head -1)
+    PM2_NAME="sellf-${INSTALL_DIR##*-}"
+elif ls -d /root/sellf-* &>/dev/null 2>&1; then
+    INSTALL_DIR=$(ls -d /root/sellf-* 2>/dev/null | head -1)
+    PM2_NAME="sellf-${INSTALL_DIR##*-}"
+elif [ -d "/opt/stacks/sellf" ]; then
+    INSTALL_DIR="/opt/stacks/sellf"
     PM2_NAME="$PM2_NAME"
 else
-    INSTALL_DIR="/root/gateflow"
+    INSTALL_DIR="/root/sellf"
     PM2_NAME="$PM2_NAME"
 fi
 
@@ -92,7 +92,7 @@ fi
 echo ""
 
 # =============================================================================
-# 1. SPRAWDŹ CZY GATEFLOW JEST ZAINSTALOWANY
+# 1. SPRAWDŹ CZY SELLF JEST ZAINSTALOWANY
 # =============================================================================
 
 if [ ! -d "$INSTALL_DIR/admin-panel" ]; then
@@ -149,7 +149,7 @@ if [ "$RESTART_ONLY" = false ]; then
             echo -e "${RED}❌ Nie udało się pobrać nowej wersji${NC}"
             echo ""
             echo "Jeśli repo jest prywatne, użyj --build-file:"
-            echo "   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz"
+            echo "   ./local/deploy.sh sellf --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz"
             exit 1
         fi
     fi

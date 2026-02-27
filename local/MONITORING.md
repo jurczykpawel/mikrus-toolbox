@@ -1,6 +1,6 @@
-# Monitorowanie GateFlow
+# Monitorowanie Sellf
 
-Przewodnik po narzędziach do monitorowania wydajności i zużycia zasobów przez aplikację GateFlow na serwerze Mikrus.
+Przewodnik po narzędziach do monitorowania wydajności i zużycia zasobów przez aplikację Sellf na serwerze Mikrus.
 
 ## 🎯 Szybki Start
 
@@ -14,45 +14,45 @@ ssh mikrus "pm2 status"
 ssh mikrus "pm2 monit"
 
 # Logi (ostatnie 50 linii)
-ssh mikrus "pm2 logs gateflow-admin --lines 50"
+ssh mikrus "pm2 logs sellf-admin --lines 50"
 ```
 
 ### Pełny benchmark (test + monitoring)
 
 ```bash
 # Uruchom jedną komendą
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus
+./local/benchmark-sellf.sh https://shop.byst.re mikrus
 
 # Z większym obciążeniem
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 500 30
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 500 30
 ```
 
 ## 📊 Dostępne Narzędzia
 
-### 1. monitor-gateflow.sh
+### 1. monitor-sellf.sh
 
-Ciągłe monitorowanie zużycia CPU i RAM przez aplikację GateFlow.
+Ciągłe monitorowanie zużycia CPU i RAM przez aplikację Sellf.
 
 **Użycie:**
 ```bash
-./local/monitor-gateflow.sh <ssh_alias> [czas_w_sekundach] [nazwa_app]
+./local/monitor-sellf.sh <ssh_alias> [czas_w_sekundach] [nazwa_app]
 ```
 
 **Przykłady:**
 ```bash
 # Monitoruj przez 60 sekund (domyślnie)
-./local/monitor-gateflow.sh mikrus
+./local/monitor-sellf.sh mikrus
 
 # Monitoruj przez 5 minut
-./local/monitor-gateflow.sh mikrus 300
+./local/monitor-sellf.sh mikrus 300
 
 # Konkretna instancja (multi-instance setup)
-./local/monitor-gateflow.sh mikrus 300 gateflow-shop
+./local/monitor-sellf.sh mikrus 300 sellf-shop
 ```
 
 **Output:**
 - Metryki w czasie rzeczywistym (progress bar)
-- Plik CSV z danymi: `gateflow-metrics-YYYYMMDD-HHMMSS.csv`
+- Plik CSV z danymi: `sellf-metrics-YYYYMMDD-HHMMSS.csv`
 - Podsumowanie: CPU/RAM (max, średnia)
 - Rekomendacja: czy aplikacja zmieści się na Mikrus 3.0
 
@@ -73,28 +73,28 @@ Ciągłe monitorowanie zużycia CPU i RAM przez aplikację GateFlow.
 
 ---
 
-### 2. load-test-gateflow.sh
+### 2. load-test-sellf.sh
 
 Test obciążeniowy aplikacji - symuluje ruch użytkowników.
 
 **Użycie:**
 ```bash
-./local/load-test-gateflow.sh <url> [liczba_requestów] [współbieżność]
+./local/load-test-sellf.sh <url> [liczba_requestów] [współbieżność]
 ```
 
 **Przykłady:**
 ```bash
 # Podstawowy test (50 requestów, 5 współbieżnych)
-./local/load-test-gateflow.sh https://shop.byst.re
+./local/load-test-sellf.sh https://shop.byst.re
 
 # Test średni (100 requestów, 10 współbieżnych)
-./local/load-test-gateflow.sh https://shop.byst.re 100 10
+./local/load-test-sellf.sh https://shop.byst.re 100 10
 
 # Test duży (500 requestów, 20 współbieżnych)
-./local/load-test-gateflow.sh https://shop.byst.re 500 20
+./local/load-test-sellf.sh https://shop.byst.re 500 20
 
 # Stress test (1000 requestów, 50 współbieżnych)
-./local/load-test-gateflow.sh https://shop.byst.re 1000 50
+./local/load-test-sellf.sh https://shop.byst.re 1000 50
 ```
 
 **Scenariusz testu (realistyczny mikst endpointów):**
@@ -125,25 +125,25 @@ Test obciążeniowy aplikacji - symuluje ruch użytkowników.
 
 ---
 
-### 3. benchmark-gateflow.sh
+### 3. benchmark-sellf.sh
 
 **Najlepsze narzędzie!** Łączy test obciążeniowy + monitoring zasobów.
 
 **Użycie:**
 ```bash
-./local/benchmark-gateflow.sh <url> <ssh_alias> [requesty] [współbieżność]
+./local/benchmark-sellf.sh <url> <ssh_alias> [requesty] [współbieżność]
 ```
 
 **Przykłady:**
 ```bash
 # Szybki benchmark (100 requestów)
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus
+./local/benchmark-sellf.sh https://shop.byst.re mikrus
 
 # Średni benchmark (200 requestów, 20 współbieżnych)
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 200 20
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 200 20
 
 # Duży benchmark (500 requestów, 30 współbieżnych)
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 500 30
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 500 30
 ```
 
 **Co robi:**
@@ -155,7 +155,7 @@ Test obciążeniowy aplikacji - symuluje ruch użytkowników.
 
 **Output (folder `benchmark-YYYYMMDD-HHMMSS/`):**
 - `REPORT.txt` - Kompletny raport tekstowy
-- `gateflow-metrics-*.csv` - Dane do wykresu
+- `sellf-metrics-*.csv` - Dane do wykresu
 - `load-test.log` - Szczegółowe logi testu
 - `monitoring.log` - Szczegółowe logi monitoringu
 
@@ -174,10 +174,10 @@ Test obciążeniowy aplikacji - symuluje ruch użytkowników.
 
 ```bash
 # 1. Zainstaluj aplikację na testowym serwerze
-./local/deploy.sh gateflow --ssh=mikrus --domain=auto
+./local/deploy.sh sellf --ssh=mikrus --domain=auto
 
 # 2. Uruchom benchmark
-./local/benchmark-gateflow.sh https://test.byst.re mikrus 200 20
+./local/benchmark-sellf.sh https://test.byst.re mikrus 200 20
 
 # 3. Sprawdź raport
 cat benchmark-*/REPORT.txt
@@ -192,10 +192,10 @@ cat benchmark-*/REPORT.txt
 
 ```bash
 # 1. Uruchom długi monitoring (10 minut)
-./local/monitor-gateflow.sh mikrus 600 &
+./local/monitor-sellf.sh mikrus 600 &
 
 # 2. W drugim terminalu - test obciążeniowy
-./local/load-test-gateflow.sh https://shop.byst.re 1000 50
+./local/load-test-sellf.sh https://shop.byst.re 1000 50
 
 # 3. Poczekaj aż monitoring się zakończy
 
@@ -210,13 +210,13 @@ cat benchmark-*/REPORT.txt
 
 ```bash
 # PRZED optymalizacją
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 300 30
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 300 30
 mv benchmark-* benchmark-before/
 
 # ... (wprowadzasz zmiany) ...
 
 # PO optymalizacji
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 300 30
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 300 30
 mv benchmark-* benchmark-after/
 
 # Porównanie
@@ -249,7 +249,7 @@ ssh mikrus "pm2 link <SECRET_KEY> <PUBLIC_KEY>"
 **Sprawdź:**
 ```bash
 # Czy są memory leaki?
-./local/monitor-gateflow.sh mikrus 600  # 10 minut
+./local/monitor-sellf.sh mikrus 600  # 10 minut
 # Otwórz CSV i zobacz czy RAM ciągle rośnie
 ```
 
@@ -260,7 +260,7 @@ ssh mikrus "pm2 link <SECRET_KEY> <PUBLIC_KEY>"
 
 **Rozwiązanie:**
 - Dodaj `NODE_OPTIONS='--max-old-space-size=512'` w PM2 config
-- Zrestartuj: `ssh mikrus "pm2 restart gateflow-admin"`
+- Zrestartuj: `ssh mikrus "pm2 restart sellf-admin"`
 
 ### Problem: Wysoki CPU w idle (> 5% bez ruchu)
 
@@ -271,7 +271,7 @@ ssh mikrus "pm2 list"
 ssh mikrus "pm2 monit"  # Patrz przez 2 minuty
 
 # Logi - szukaj powtarzających się operacji
-ssh mikrus "pm2 logs gateflow-admin --lines 200"
+ssh mikrus "pm2 logs sellf-admin --lines 200"
 ```
 
 **Możliwe przyczyny:**
@@ -280,7 +280,7 @@ ssh mikrus "pm2 logs gateflow-admin --lines 200"
 - Hot reload (DEV mode - nie powinno być na produkcji!)
 
 **Rozwiązanie:**
-- Sprawdź `NODE_ENV`: `ssh mikrus "grep NODE_ENV ~/gateflow/admin-panel/.env.local"`
+- Sprawdź `NODE_ENV`: `ssh mikrus "grep NODE_ENV ~/sellf/admin-panel/.env.local"`
 - Musi być `NODE_ENV=production`!
 
 ### Problem: Wolne czasy odpowiedzi (> 1s średnia)
@@ -288,7 +288,7 @@ ssh mikrus "pm2 logs gateflow-admin --lines 200"
 **Sprawdź:**
 ```bash
 # Test z różnych lokalizacji
-./local/load-test-gateflow.sh https://shop.byst.re 50 5
+./local/load-test-sellf.sh https://shop.byst.re 50 5
 
 # Sprawdź czy wolne są wszystkie endpointy czy tylko niektóre
 curl -w "@curl-format.txt" -o /dev/null -s https://shop.byst.re
@@ -315,15 +315,15 @@ curl -w "@curl-format.txt" -o /dev/null -s https://shop.byst.re/products
 **Sprawdź:**
 ```bash
 # Test stopniowego obciążenia
-./local/load-test-gateflow.sh https://shop.byst.re 10 2   # OK?
-./local/load-test-gateflow.sh https://shop.byst.re 50 5   # OK?
-./local/load-test-gateflow.sh https://shop.byst.re 100 10 # Crash?
+./local/load-test-sellf.sh https://shop.byst.re 10 2   # OK?
+./local/load-test-sellf.sh https://shop.byst.re 50 5   # OK?
+./local/load-test-sellf.sh https://shop.byst.re 100 10 # Crash?
 
 # Logi podczas crashu
-ssh mikrus "pm2 logs gateflow-admin --lines 500 --err"
+ssh mikrus "pm2 logs sellf-admin --lines 500 --err"
 
 # Sprawdź ilość restartów
-ssh mikrus "pm2 show gateflow-admin"
+ssh mikrus "pm2 show sellf-admin"
 ```
 
 **Możliwe przyczyny:**
@@ -358,7 +358,7 @@ ssh mikrus "pm2 show gateflow-admin"
 | Response time | 100-200ms | 200-350ms | 350-600ms | 600-1000ms |
 | Concurrent users | - | ~10 | ~20-30 | ~50-80 |
 
-**Uwaga:** To wartości dla standardowego GateFlow z Supabase. Twoje wyniki mogą się różnić w zależności od:
+**Uwaga:** To wartości dla standardowego Sellf z Supabase. Twoje wyniki mogą się różnić w zależności od:
 - Ilości produktów
 - Złożoności zapytań
 - Rozmiaru zdjęć
@@ -375,7 +375,7 @@ ssh mikrus "pm2 show gateflow-admin"
 ssh mikrus "pm2 status"
 
 # Co tydzień - pełny raport
-./local/benchmark-gateflow.sh https://shop.byst.re mikrus 100 10
+./local/benchmark-sellf.sh https://shop.byst.re mikrus 100 10
 
 # Trzymaj historię
 mkdir -p benchmarks/
@@ -406,13 +406,13 @@ Skonfiguruj PM2 Plus (darmowy) dla alertów:
 
 ```bash
 # Przed każdym update
-./local/benchmark-gateflow.sh https://test.byst.re mikrus 200 20
+./local/benchmark-sellf.sh https://test.byst.re mikrus 200 20
 
 # Jeśli wyniki OK - deploy na produkcję
-./local/deploy.sh gateflow --ssh=mikrus-prod --update
+./local/deploy.sh sellf --ssh=mikrus-prod --update
 
 # Po deployu - sprawdź czy nie pogorszyło się
-./local/benchmark-gateflow.sh https://shop.example.com mikrus-prod 200 20
+./local/benchmark-sellf.sh https://shop.example.com mikrus-prod 200 20
 ```
 
 ---
@@ -437,7 +437,7 @@ ssh mikrus "pm2 link <SECRET> <PUBLIC>"
 ### Grafana + Prometheus (zaawansowane)
 
 Jeśli potrzebujesz profesjonalnego monitoringu:
-1. Zainstaluj `prom-client` w GateFlow
+1. Zainstaluj `prom-client` w Sellf
 2. Expose `/metrics` endpoint
 3. Skonfiguruj Prometheus na Mikrusie
 4. Podłącz Grafana
@@ -452,8 +452,8 @@ Jeśli potrzebujesz profesjonalnego monitoringu:
 
 A: Tak! Benchmark każdą osobno:
 ```bash
-./local/benchmark-gateflow.sh https://shop1.example.com mikrus
-./local/benchmark-gateflow.sh https://shop2.example.com mikrus
+./local/benchmark-sellf.sh https://shop1.example.com mikrus
+./local/benchmark-sellf.sh https://shop2.example.com mikrus
 ```
 
 **Q: Jak często powinienem robić benchmark?**
@@ -482,14 +482,14 @@ apt install wrk   # Linux
 wrk -t12 -c400 -d30s https://shop.byst.re
 ```
 
-**Q: Czy te skrypty działają z innymi aplikacjami (nie tylko GateFlow)?**
+**Q: Czy te skrypty działają z innymi aplikacjami (nie tylko Sellf)?**
 
 A: Tak! Wszystkie skrypty PM2 działają z każdą aplikacją zarządzaną przez PM2. Podaj tylko nazwę procesu:
 ```bash
-./local/monitor-gateflow.sh mikrus 300 n8n-server
-./local/monitor-gateflow.sh mikrus 300 uptime-kuma
+./local/monitor-sellf.sh mikrus 300 n8n-server
+./local/monitor-sellf.sh mikrus 300 uptime-kuma
 ```
 
 ---
 
-**💡 Pro Tip:** Uruchom benchmark przed zakupem Mikrusa. Zainstaluj GateFlow na darmowym serwisie (Railway, Render free tier) i uruchom `benchmark-gateflow.sh`. Jeśli RAM < 500 MB - Mikrus 2.1 wystarczy. Jeśli RAM > 500 MB - potrzeba Mikrus 3.0.
+**💡 Pro Tip:** Uruchom benchmark przed zakupem Mikrusa. Zainstaluj Sellf na darmowym serwisie (Railway, Render free tier) i uruchom `benchmark-sellf.sh`. Jeśli RAM < 500 MB - Mikrus 2.1 wystarczy. Jeśli RAM > 500 MB - potrzeba Mikrus 3.0.

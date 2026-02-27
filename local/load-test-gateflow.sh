@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# Test obciążeniowy GateFlow
+# Test obciążeniowy Sellf
 # Wymaga: curl, jq (opcjonalnie)
 #
-# Użycie: ./local/load-test-gateflow.sh <url> [liczba_requestów] [współbieżność]
+# Użycie: ./local/load-test-sellf.sh <url> [liczba_requestów] [współbieżność]
 #
 # Przykłady:
-#   ./local/load-test-gateflow.sh https://shop.example.com
-#   ./local/load-test-gateflow.sh https://shop.byst.re 100 10
-#   ./local/load-test-gateflow.sh https://shop.example.com 500 20
+#   ./local/load-test-sellf.sh https://shop.example.com
+#   ./local/load-test-sellf.sh https://shop.byst.re 100 10
+#   ./local/load-test-sellf.sh https://shop.example.com 500 20
 
 URL=${1}
 TOTAL_REQUESTS=${2:-50}
@@ -23,7 +23,7 @@ fi
 # Usuń trailing slash
 URL=${URL%/}
 
-echo "🚀 Test obciążeniowy GateFlow"
+echo "🚀 Test obciążeniowy Sellf"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "URL:          $URL"
 echo "Requesty:     $TOTAL_REQUESTS"
@@ -246,6 +246,6 @@ fi
 
 echo ""
 echo "💡 Wskazówki:"
-echo "  - Uruchom ./local/monitor-gateflow.sh podczas testu aby zobaczyć zużycie zasobów"
+echo "  - Uruchom ./local/monitor-sellf.sh podczas testu aby zobaczyć zużycie zasobów"
 echo "  - Zwiększ współbieżność (--concurrent) aby symulować więcej użytkowników"
-echo "  - Sprawdź logi: ssh <alias> 'pm2 logs gateflow-admin --lines 100'"
+echo "  - Sprawdź logi: ssh <alias> 'pm2 logs sellf-admin --lines 100'"

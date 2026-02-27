@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Stripe Setup for GateFlow
+# Mikrus Toolbox - Stripe Setup for Sellf
 # Konfiguruje Stripe do obsługi płatności
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   ./local/setup-stripe-gateflow.sh [domena]
+#   ./local/setup-stripe-sellf.sh [domena]
 #
 # Przykłady:
-#   ./local/setup-stripe-gateflow.sh app.example.com
-#   ./local/setup-stripe-gateflow.sh
+#   ./local/setup-stripe-sellf.sh app.example.com
+#   ./local/setup-stripe-sellf.sh
 
 set -e
 
@@ -23,11 +23,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Konfiguracja
-CONFIG_DIR="$HOME/.config/gateflow"
+CONFIG_DIR="$HOME/.config/sellf"
 CONFIG_FILE="$CONFIG_DIR/stripe.env"
 
 echo ""
-echo -e "${BLUE}💳 Stripe Setup for GateFlow${NC}"
+echo -e "${BLUE}💳 Stripe Setup for Sellf${NC}"
 echo ""
 
 # =============================================================================
@@ -149,7 +149,7 @@ echo "════════════════════════�
 echo "📋 WEBHOOK (opcjonalne)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Webhook pozwala Stripe powiadamiać GateFlow o płatnościach."
+echo "Webhook pozwala Stripe powiadamiać Sellf o płatnościach."
 echo "Możesz skonfigurować go teraz lub później w panelu Stripe."
 echo ""
 
@@ -210,7 +210,7 @@ echo "💾 Zapisuję konfigurację..."
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
-# GateFlow - Stripe Configuration
+# Sellf - Stripe Configuration
 # Wygenerowano: $(date)
 # Tryb: $([ "$KEY_PREFIX" = "test" ] && echo "TEST" || echo "LIVE")
 
@@ -237,9 +237,9 @@ echo ""
 echo "Konfiguracja zapisana w: $CONFIG_FILE"
 echo ""
 echo "Użycie z deploy.sh:"
-echo "   source ~/.config/gateflow/stripe.env"
+echo "   source ~/.config/sellf/stripe.env"
 echo "   STRIPE_PK=\"\$STRIPE_PUBLISHABLE_KEY\" STRIPE_SK=\"\$STRIPE_SECRET_KEY\" \\"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   ./local/deploy.sh sellf --ssh=mikrus --domain=gf.example.com"
 echo ""
 
 if [ "$KEY_PREFIX" = "test" ]; then
@@ -252,7 +252,7 @@ fi
 
 if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
     echo -e "${YELLOW}⚠️  Webhook nie skonfigurowany${NC}"
-    echo "   Po uruchomieniu GateFlow, skonfiguruj webhook:"
+    echo "   Po uruchomieniu Sellf, skonfiguruj webhook:"
     echo "   https://dashboard.stripe.com/webhooks"
     if [ -n "$DOMAIN" ]; then
         echo "   Endpoint: https://$DOMAIN/api/webhooks/stripe"

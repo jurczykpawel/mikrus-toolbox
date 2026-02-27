@@ -1,21 +1,21 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Configuration Setup
-# Zbiera i zapisuje wszystkie klucze potrzebne do automatycznego deploymentu GateFlow
+# Mikrus Toolbox - Sellf Configuration Setup
+# Zbiera i zapisuje wszystkie klucze potrzebne do automatycznego deploymentu Sellf
 # Author: Paweł (Lazy Engineer)
 #
 # Po uruchomieniu tego skryptu można odpalić:
-#   ./local/deploy.sh gateflow --ssh=ALIAS --yes
+#   ./local/deploy.sh sellf --ssh=ALIAS --yes
 #
 # Użycie:
-#   ./local/setup-gateflow-config.sh [--ssh=ALIAS]
+#   ./local/setup-sellf-config.sh [--ssh=ALIAS]
 
 set -e
 
 # Załaduj biblioteki
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-source "$REPO_ROOT/lib/gateflow-setup.sh"
+source "$REPO_ROOT/lib/sellf-setup.sh"
 
 # Parsuj argumenty
 SSH_ALIAS=""
@@ -37,7 +37,7 @@ for arg in "$@"; do
         --no-turnstile) NO_TURNSTILE=true ;;
         --help|-h)
             cat <<EOF
-Użycie: ./local/setup-gateflow-config.sh [opcje]
+Użycie: ./local/setup-sellf-config.sh [opcje]
 
 Opcje:
   --ssh=ALIAS              SSH alias serwera
@@ -50,16 +50,16 @@ Opcje:
 
 Przykłady:
   # Pełna interaktywna konfiguracja
-  ./local/setup-gateflow-config.sh
+  ./local/setup-sellf-config.sh
 
   # Z domeną i SSH
-  ./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto --domain-type=cytrus
+  ./local/setup-sellf-config.sh --ssh=mikrus --domain=auto --domain-type=cytrus
 
   # Z konkretnym projektem Supabase
-  ./local/setup-gateflow-config.sh --ssh=mikrus --supabase-project=abcdefghijk --domain=auto
+  ./local/setup-sellf-config.sh --ssh=mikrus --supabase-project=abcdefghijk --domain=auto
 
   # Tylko Supabase (bez Stripe i Turnstile)
-  ./local/setup-gateflow-config.sh --no-stripe --no-turnstile
+  ./local/setup-sellf-config.sh --no-stripe --no-turnstile
 EOF
             exit 0
             ;;
@@ -85,18 +85,18 @@ if [ "$DOMAIN" = "auto" ]; then
 fi
 
 # Konfiguracja
-CONFIG_FILE="$HOME/.config/gateflow/deploy-config.env"
+CONFIG_FILE="$HOME/.config/sellf/deploy-config.env"
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo -e "${BLUE}🔧 GateFlow - Konfiguracja kluczy${NC}"
+echo -e "${BLUE}🔧 Sellf - Konfiguracja kluczy${NC}"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 echo "Ten skrypt zbierze wszystkie klucze potrzebne do deploymentu."
 echo "Każdy krok jest opcjonalny - naciśnij Enter aby pominąć."
 echo ""
 echo "Po zakończeniu będziesz mógł uruchomić deployment automatycznie:"
-echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=ALIAS --yes${NC}"
+echo -e "   ${BLUE}./local/deploy.sh sellf --ssh=ALIAS --yes${NC}"
 echo ""
 
 # =============================================================================
@@ -213,7 +213,7 @@ else
             echo -e "${YELLOW}   ⏭️  Pominięto${NC}"
         fi
     else
-        echo -e "${YELLOW}   ⏭️  Pominięto - skonfigurujesz w panelu GateFlow${NC}"
+        echo -e "${YELLOW}   ⏭️  Pominięto - skonfigurujesz w panelu Sellf${NC}"
     fi
 fi
 
@@ -344,8 +344,8 @@ echo ""
 mkdir -p "$(dirname "$CONFIG_FILE")"
 
 cat > "$CONFIG_FILE" << EOF
-# GateFlow Deploy Configuration
-# Wygenerowane przez setup-gateflow-config.sh
+# Sellf Deploy Configuration
+# Wygenerowane przez setup-sellf-config.sh
 # Data: $(date)
 
 # SSH
@@ -434,14 +434,14 @@ echo ""
 if [ -n "$SSH_ALIAS" ] && [ "$SUPABASE_CONFIGURED" = true ]; then
     echo "Możesz teraz uruchomić deployment automatycznie:"
     echo ""
-    echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=$SSH_ALIAS --yes${NC}"
+    echo -e "   ${BLUE}./local/deploy.sh sellf --ssh=$SSH_ALIAS --yes${NC}"
 else
     echo "Uruchom deployment (odpowie na brakujące pytania):"
     echo ""
     if [ -n "$SSH_ALIAS" ]; then
-        echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=$SSH_ALIAS${NC}"
+        echo -e "   ${BLUE}./local/deploy.sh sellf --ssh=$SSH_ALIAS${NC}"
     else
-        echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=TWOJ_ALIAS${NC}"
+        echo -e "   ${BLUE}./local/deploy.sh sellf --ssh=TWOJ_ALIAS${NC}"
     fi
 fi
 echo ""

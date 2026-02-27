@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Setup Library
-# Funkcje do konfiguracji GateFlow (Supabase, Turnstile, etc.)
+# Mikrus Toolbox - Sellf Setup Library
+# Funkcje do konfiguracji Sellf (Supabase, Turnstile, etc.)
 # Author: Paweł (Lazy Engineer)
 
 # Kolory (jeśli nie załadowane)
@@ -14,8 +14,8 @@ NC="${NC:-\033[0m}"
 # Ścieżki konfiguracji
 SUPABASE_CONFIG_DIR="${SUPABASE_CONFIG_DIR:-$HOME/.config/supabase}"
 SUPABASE_TOKEN_FILE="${SUPABASE_TOKEN_FILE:-$HOME/.config/supabase/access_token}"
-GATEFLOW_CONFIG_DIR="${GATEFLOW_CONFIG_DIR:-$HOME/.config/gateflow}"
-GATEFLOW_SUPABASE_CONFIG="${GATEFLOW_SUPABASE_CONFIG:-$HOME/.config/gateflow/supabase.env}"
+SELLF_CONFIG_DIR="${SELLF_CONFIG_DIR:-$HOME/.config/sellf}"
+SELLF_SUPABASE_CONFIG="${SELLF_SUPABASE_CONFIG:-$HOME/.config/sellf/supabase.env}"
 
 # =============================================================================
 # SUPABASE TOKEN MANAGEMENT
@@ -295,15 +295,15 @@ select_supabase_project() {
         echo "✅ Klucze Supabase pobrane!"
 
         # Zapisz konfigurację projektu do pliku
-        mkdir -p "$GATEFLOW_CONFIG_DIR"
-        cat > "$GATEFLOW_SUPABASE_CONFIG" << EOF
-# GateFlow Supabase Configuration
+        mkdir -p "$SELLF_CONFIG_DIR"
+        cat > "$SELLF_SUPABASE_CONFIG" << EOF
+# Sellf Supabase Configuration
 # Wygenerowane przez deploy.sh
 SUPABASE_URL=$SUPABASE_URL
 PROJECT_REF=$PROJECT_REF
 EOF
-        chmod 600 "$GATEFLOW_SUPABASE_CONFIG"
-        echo "   💾 Konfiguracja zapisana do ~/.config/gateflow/supabase.env"
+        chmod 600 "$SELLF_SUPABASE_CONFIG"
+        echo "   💾 Konfiguracja zapisana do ~/.config/sellf/supabase.env"
         return 0
     else
         echo "❌ Nie udało się pobrać kluczy API"
@@ -314,7 +314,7 @@ EOF
         echo ""
         echo "Rozwiązanie: Skopiuj klucze ręcznie"
         echo "  1. Otwórz: https://supabase.com/dashboard/project/$PROJECT_REF/settings/api"
-        echo "  2. Uruchom: ./local/setup-gateflow-config.sh"
+        echo "  2. Uruchom: ./local/setup-sellf-config.sh"
         return 1
     fi
 }
@@ -378,7 +378,7 @@ fetch_supabase_keys_by_ref() {
 # SUPABASE CONFIGURATION (wszystko w jednym miejscu)
 # =============================================================================
 
-# Skonfiguruj wszystkie ustawienia Supabase dla GateFlow
+# Skonfiguruj wszystkie ustawienia Supabase dla Sellf
 # Wymaga: SUPABASE_TOKEN, PROJECT_REF
 # Opcjonalne: DOMAIN, CLOUDFLARE_TURNSTILE_SECRET_KEY
 configure_supabase_settings() {
@@ -457,7 +457,7 @@ configure_supabase_settings() {
 
     # 3. Email templates (jeśli dostępne na serwerze)
     if [ -n "$SSH_ALIAS" ]; then
-        local REMOTE_TEMPLATES_DIR="/opt/stacks/gateflow/admin-panel/supabase/templates"
+        local REMOTE_TEMPLATES_DIR="/opt/stacks/sellf/admin-panel/supabase/templates"
         local TEMPLATES_EXIST=$(ssh "$SSH_ALIAS" "ls '$REMOTE_TEMPLATES_DIR'/*.html 2>/dev/null | head -1" 2>/dev/null)
 
         if [ -n "$TEMPLATES_EXIST" ]; then
@@ -507,7 +507,7 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/invite.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_invite_content: $content, mailer_subjects_invite: "Zaproszenie do GateFlow"}')
+                    '. + {mailer_templates_invite_content: $content, mailer_subjects_invite: "Zaproszenie do Sellf"}')
                 CHANGES_MADE=true
             fi
 
@@ -547,13 +547,13 @@ update_supabase_site_url() {
     echo ""
     echo "🌐 Aktualizuję Site URL w Supabase: https://$NEW_DOMAIN"
 
-    # Zmienne powinny być już ustawione przez gateflow_collect_config
+    # Zmienne powinny być już ustawione przez sellf_collect_config
     # Fallback do plików config jeśli z jakiegoś powodu nie są
     if [ -z "$SUPABASE_TOKEN" ]; then
         [ -f "$SUPABASE_TOKEN_FILE" ] && SUPABASE_TOKEN=$(cat "$SUPABASE_TOKEN_FILE")
     fi
     if [ -z "$PROJECT_REF" ]; then
-        [ -f "$GATEFLOW_SUPABASE_CONFIG" ] && source "$GATEFLOW_SUPABASE_CONFIG"
+        [ -f "$SELLF_SUPABASE_CONFIG" ] && source "$SELLF_SUPABASE_CONFIG"
     fi
 
     # Debug info
@@ -627,10 +627,10 @@ update_supabase_site_url() {
 # GŁÓWNA FUNKCJA SETUP
 # =============================================================================
 
-# Pełny setup GateFlow (zbieranie pytań)
+# Pełny setup Sellf (zbieranie pytań)
 # Ustawia wszystkie zmienne potrzebne do instalacji
 # Wywoływane w FAZIE ZBIERANIA (przed "Teraz się zrelaksuj")
-gateflow_collect_config() {
+sellf_collect_config() {
     local DOMAIN="${1:-}"
 
     echo "════════════════════════════════════════════════════════════════"
@@ -656,7 +656,7 @@ gateflow_collect_config() {
 
 # Konfiguracja Supabase po instalacji (w FAZIE WYKONANIA)
 # Wywoływane po uruchomieniu aplikacji
-gateflow_configure_supabase() {
+sellf_configure_supabase() {
     local DOMAIN="${1:-}"
     local TURNSTILE_SECRET="${2:-}"
     local SSH_ALIAS="${3:-}"
@@ -666,7 +666,7 @@ gateflow_configure_supabase() {
 
 # Pokaż przypomnienie o Turnstile (dla automatycznej domeny Cytrus)
 # Wywoływane w podsumowaniu gdy Turnstile nie był skonfigurowany
-gateflow_show_turnstile_reminder() {
+sellf_show_turnstile_reminder() {
     local DOMAIN="${1:-}"
     local SSH_ALIAS="${2:-}"
 
@@ -683,11 +683,11 @@ gateflow_show_turnstile_reminder() {
 # =============================================================================
 
 # Zbierz konfigurację Stripe (pytanie lokalne w FAZIE 1.5)
-# Ustawia: STRIPE_PK, STRIPE_SK, STRIPE_WEBHOOK_SECRET, GATEFLOW_STRIPE_CONFIGURED
-gateflow_collect_stripe_config() {
+# Ustawia: STRIPE_PK, STRIPE_SK, STRIPE_WEBHOOK_SECRET, SELLF_STRIPE_CONFIGURED
+sellf_collect_stripe_config() {
     # Jeśli już mamy klucze (przekazane przez env lub poprzednia konfiguracja) - pomiń
     if [ -n "$STRIPE_PK" ] && [ -n "$STRIPE_SK" ]; then
-        GATEFLOW_STRIPE_CONFIGURED=true
+        SELLF_STRIPE_CONFIGURED=true
         return 0
     fi
 
@@ -696,13 +696,13 @@ gateflow_collect_stripe_config() {
     echo "💳 KONFIGURACJA STRIPE"
     echo "════════════════════════════════════════════════════════════════"
     echo ""
-    echo "GateFlow potrzebuje kluczy Stripe do obsługi płatności."
-    echo "Możesz je skonfigurować teraz lub później w panelu GateFlow."
+    echo "Sellf potrzebuje kluczy Stripe do obsługi płatności."
+    echo "Możesz je skonfigurować teraz lub później w panelu Sellf."
     echo ""
 
     if [ "$YES_MODE" = true ]; then
         echo "⏭️  Tryb --yes: Stripe zostanie skonfigurowany w panelu po instalacji."
-        GATEFLOW_STRIPE_CONFIGURED=false
+        SELLF_STRIPE_CONFIGURED=false
         return 0
     fi
 
@@ -717,20 +717,20 @@ gateflow_collect_stripe_config() {
         read -p "STRIPE_PUBLISHABLE_KEY (pk_...): " STRIPE_PK
         read -p "STRIPE_SECRET_KEY (sk_...): " STRIPE_SK
         read -p "STRIPE_WEBHOOK_SECRET (whsec_..., opcjonalne - Enter aby pominąć): " STRIPE_WEBHOOK_SECRET
-        GATEFLOW_STRIPE_CONFIGURED=true
+        SELLF_STRIPE_CONFIGURED=true
         echo ""
         echo -e "${GREEN}✅ Klucze Stripe zebrane${NC}"
     else
         echo ""
         echo "⏭️  Pominięto - skonfigurujesz Stripe w panelu po instalacji."
-        GATEFLOW_STRIPE_CONFIGURED=false
+        SELLF_STRIPE_CONFIGURED=false
     fi
 
     return 0
 }
 
-# Pokaż przypomnienia post-instalacyjne dla GateFlow
-gateflow_show_post_install_reminders() {
+# Pokaż przypomnienia post-instalacyjne dla Sellf
+sellf_show_post_install_reminders() {
     local DOMAIN="${1:-}"
     local SSH_ALIAS="${2:-}"
     local STRIPE_CONFIGURED="${3:-false}"
@@ -752,7 +752,7 @@ gateflow_show_post_install_reminders() {
     if [ "$STRIPE_CONFIGURED" != true ]; then
         echo ""
         echo -e "${YELLOW}💳 Stripe API Keys:${NC} (jeśli nie skonfigurowane)"
-        echo -e "   ${BLUE}ssh $SSH_ALIAS nano /opt/stacks/gateflow/admin-panel/.env.local${NC}"
+        echo -e "   ${BLUE}ssh $SSH_ALIAS nano /opt/stacks/sellf/admin-panel/.env.local${NC}"
     fi
 
     # Turnstile

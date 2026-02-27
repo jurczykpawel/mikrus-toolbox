@@ -4,13 +4,13 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
-# Monitorowanie zużycia zasobów przez GateFlow
-# Użycie: ./local/monitor-gateflow.sh <ssh_alias> [czas_w_sekundach] [app_name]
+# Monitorowanie zużycia zasobów przez Sellf
+# Użycie: ./local/monitor-sellf.sh <ssh_alias> [czas_w_sekundach] [app_name]
 #
 # Przykłady:
-#   ./local/monitor-gateflow.sh mikrus                    # 60 sekund, gateflow-admin
-#   ./local/monitor-gateflow.sh mikrus 300                # 5 minut
-#   ./local/monitor-gateflow.sh mikrus 300 gateflow-shop  # konkretna instancja
+#   ./local/monitor-sellf.sh mikrus                    # 60 sekund, sellf-admin
+#   ./local/monitor-sellf.sh mikrus 300                # 5 minut
+#   ./local/monitor-sellf.sh mikrus 300 sellf-shop  # konkretna instancja
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ -z "${1:-}" ]; then
   echo "Użycie: $0 <ssh_alias> [czas_w_sekundach] [app_name]"
@@ -18,7 +18,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ -z "${1:-}" ]; then
   echo "Przykłady:"
   echo "  $0 mikrus                    # 60 sekund, auto-detekcja"
   echo "  $0 mikrus 300                # 5 minut"
-  echo "  $0 mikrus 300 gateflow-shop  # konkretna instancja"
+  echo "  $0 mikrus 300 sellf-shop  # konkretna instancja"
   exit 0
 fi
 
@@ -28,11 +28,11 @@ APP_NAME=${3:-""}
 INTERVAL=1
 
 if [ -z "$APP_NAME" ]; then
-  echo "🔍 Wykrywam instancje GateFlow na serwerze..."
-  INSTANCES=$(server_exec "pm2 list | grep gateflow | awk '{print \$2}'")
+  echo "🔍 Wykrywam instancje Sellf na serwerze..."
+  INSTANCES=$(server_exec "pm2 list | grep sellf | awk '{print \$2}'")
 
   if [ -z "$INSTANCES" ]; then
-    echo "❌ Nie znaleziono instancji GateFlow"
+    echo "❌ Nie znaleziono instancji Sellf"
     exit 1
   fi
 
@@ -50,7 +50,7 @@ if [ -z "$APP_NAME" ]; then
   fi
 fi
 
-OUTPUT_FILE="gateflow-metrics-$(date +%Y%m%d-%H%M%S).csv"
+OUTPUT_FILE="sellf-metrics-$(date +%Y%m%d-%H%M%S).csv"
 
 echo "📊 Monitorowanie: $APP_NAME"
 echo "⏱️  Czas: ${DURATION}s (odświeżanie co ${INTERVAL}s)"

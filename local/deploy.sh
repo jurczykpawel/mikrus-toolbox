@@ -30,7 +30,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$REPO_ROOT/lib/cli-parser.sh"
 source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
-source "$REPO_ROOT/lib/gateflow-setup.sh" 2>/dev/null || true  # Opcjonalna dla GateFlow
+source "$REPO_ROOT/lib/sellf-setup.sh" 2>/dev/null || true  # Opcjonalna dla Sellf
 source "$REPO_ROOT/lib/port-utils.sh"
 
 # Placeholder wstawiany do docker-compose gdy DOMAIN="-" (automatyczny Cytrus).
@@ -95,13 +95,13 @@ Przykłady:
   ./local/deploy.sh n8n --ssh=mikrus --dry-run
 
   # Aktualizacja istniejącej aplikacji
-  ./local/deploy.sh gateflow --ssh=mikrus --update
+  ./local/deploy.sh sellf --ssh=mikrus --update
 
   # Aktualizacja z lokalnego pliku (gdy repo jest prywatne)
-  ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
+  ./local/deploy.sh sellf --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz
 
   # Restart bez aktualizacji (np. po zmianie .env)
-  ./local/deploy.sh gateflow --ssh=mikrus --update --restart
+  ./local/deploy.sh sellf --ssh=mikrus --update --restart
 
 EOF
 }
@@ -198,11 +198,11 @@ if ! is_on_server; then
 fi
 
 # =============================================================================
-# ZAŁADUJ ZAPISANĄ KONFIGURACJĘ (dla GateFlow)
+# ZAŁADUJ ZAPISANĄ KONFIGURACJĘ (dla Sellf)
 # =============================================================================
 
-GATEFLOW_CONFIG="$HOME/.config/gateflow/deploy-config.env"
-if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
+SELLF_CONFIG="$HOME/.config/sellf/deploy-config.env"
+if [ -f "$SELLF_CONFIG" ] && [[ "$SCRIPT_PATH" == "sellf" ]]; then
     # Zachowaj wartości z CLI (mają priorytet nad configiem)
     CLI_SSH_ALIAS="$SSH_ALIAS"
     CLI_DOMAIN="$DOMAIN"
@@ -210,7 +210,7 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
     CLI_SUPABASE_PROJECT="$SUPABASE_PROJECT"
 
     # Załaduj config
-    source "$GATEFLOW_CONFIG"
+    source "$SELLF_CONFIG"
 
     # Przywróć wartości CLI jeśli były podane (CLI > config)
     [ -n "$CLI_SSH_ALIAS" ] && SSH_ALIAS="$CLI_SSH_ALIAS"
@@ -220,7 +220,7 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
 
     if [ "$YES_MODE" = true ]; then
         # Tryb --yes: używaj zapisanej konfiguracji (z override z CLI)
-        echo "📂 Ładuję zapisaną konfigurację GateFlow (tryb --yes)..."
+        echo "📂 Ładuję zapisaną konfigurację Sellf (tryb --yes)..."
 
         # Supabase
         [ -n "$SUPABASE_URL" ] && export SUPABASE_URL
@@ -297,7 +297,7 @@ if [ "$UPDATE_MODE" = true ]; then
         fi
 
         echo "📤 Kopiuję plik buildu na serwer..."
-        REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
+        REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
         server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
         echo "   ✅ Skopiowano"
     fi
@@ -332,7 +332,7 @@ if [ "$UPDATE_MODE" = true ]; then
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
         if [ "$RESTART_ONLY" = true ]; then
-            echo -e "${GREEN}✅ GateFlow zrestartowany!${NC}"
+            echo -e "${GREEN}✅ Sellf zrestartowany!${NC}"
         else
             echo -e "${GREEN}✅ Pliki zaktualizowane${NC}"
         fi
@@ -342,8 +342,8 @@ if [ "$UPDATE_MODE" = true ]; then
         exit 1
     fi
 
-    # Dla GateFlow - uruchom migracje przez API (lokalnie) - tylko w trybie update, nie restart
-    if [ "$APP_NAME" = "gateflow" ] && [ "$RESTART_ONLY" = false ]; then
+    # Dla Sellf - uruchom migracje przez API (lokalnie) - tylko w trybie update, nie restart
+    if [ "$APP_NAME" = "sellf" ] && [ "$RESTART_ONLY" = false ]; then
         echo ""
         echo "🗄️  Aktualizuję bazę danych..."
 
@@ -657,16 +657,16 @@ if [[ "$SCRIPT_DISPLAY" == apps/* ]]; then
 fi
 
 # =============================================================================
-# FAZA 1.5: KONFIGURACJA GATEFLOW (pytania o Supabase)
+# FAZA 1.5: KONFIGURACJA SELLF (pytania o Supabase)
 # =============================================================================
 
-# Zmienne GateFlow
-GATEFLOW_TURNSTILE_SECRET=""
+# Zmienne Sellf
+SELLF_TURNSTILE_SECRET=""
 SETUP_TURNSTILE_LATER=false
 TURNSTILE_OFFERED=false
-GATEFLOW_STRIPE_CONFIGURED=false
+SELLF_STRIPE_CONFIGURED=false
 
-if [ "$APP_NAME" = "gateflow" ]; then
+if [ "$APP_NAME" = "sellf" ]; then
     # 1. Zbierz konfigurację Supabase (token + wybór projektu)
     # Pobierz klucze jeśli:
     # - Nie mamy SUPABASE_URL, LUB
@@ -701,7 +701,7 @@ if [ "$APP_NAME" = "gateflow" ]; then
             fi
         else
             # Interaktywny wybór projektu
-            if ! gateflow_collect_config "$DOMAIN"; then
+            if ! sellf_collect_config "$DOMAIN"; then
                 echo "❌ Konfiguracja Supabase nie powiodła się"
                 exit 1
             fi
@@ -709,13 +709,13 @@ if [ "$APP_NAME" = "gateflow" ]; then
     fi
 
     # 2. Zbierz konfigurację Stripe (pytanie lokalne)
-    gateflow_collect_stripe_config
+    sellf_collect_stripe_config
 fi
 
-# Turnstile dla GateFlow - pytanie o konfigurację CAPTCHA
+# Turnstile dla Sellf - pytanie o konfigurację CAPTCHA
 # Turnstile działa na każdej domenie (nie tylko Cloudflare DNS), wymaga tylko konta Cloudflare
 # Pomijamy tylko dla: local (dev) lub automatycznej domeny Cytrus (DOMAIN="-")
-if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+if [ "$APP_NAME" = "sellf" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     TURNSTILE_OFFERED=true
     echo ""
     echo "🔒 Konfiguracja Turnstile (CAPTCHA)"
@@ -727,11 +727,11 @@ if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAI
         if [ -f "$KEYS_FILE" ]; then
             source "$KEYS_FILE"
             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                 echo "   ✅ Użyję zapisanych kluczy Turnstile"
             fi
         fi
-        if [ -z "$GATEFLOW_TURNSTILE_SECRET" ]; then
+        if [ -z "$SELLF_TURNSTILE_SECRET" ]; then
             echo -e "${YELLOW}   ⚠️  Brak zapisanych kluczy Turnstile${NC}"
             echo "   Skonfiguruj po instalacji: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
@@ -748,7 +748,7 @@ if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAI
                 if [ -f "$KEYS_FILE" ]; then
                     source "$KEYS_FILE"
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                        GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                        SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
                         echo -e "${GREEN}✅ Klucze Turnstile zostaną przekazane do instalacji${NC}"
                     fi
@@ -817,8 +817,8 @@ if [ "$NEEDS_DOMAIN" = true ] && [ -n "$DOMAIN" ]; then
         if [ "$DOMAIN_TYPE" = "local" ]; then
             # Tryb local bez konkretnej domeny — nic nie przekazuj
             :
-        elif [ "$APP_NAME" = "gateflow" ]; then
-            # GateFlow ma własny mechanizm — deploy.sh aktualizuje .env.local po Cytrus
+        elif [ "$APP_NAME" = "sellf" ]; then
+            # Sellf ma własny mechanizm — deploy.sh aktualizuje .env.local po Cytrus
             DOMAIN_ENV="DOMAIN='-'"
         else
             # Dla Cytrus z automatyczną domeną, przekaż placeholder zamiast "-".
@@ -853,8 +853,8 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
 
-# Dla GateFlow - dodaj zmienne do EXTRA_ENV (zebrane wcześniej w FAZIE 1.5)
-if [ "$APP_NAME" = "gateflow" ]; then
+# Dla Sellf - dodaj zmienne do EXTRA_ENV (zebrane wcześniej w FAZIE 1.5)
+if [ "$APP_NAME" = "sellf" ]; then
     # Supabase
     if [ -n "$SUPABASE_URL" ]; then
         EXTRA_ENV="$EXTRA_ENV SUPABASE_URL='$SUPABASE_URL' SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
@@ -867,7 +867,7 @@ if [ "$APP_NAME" = "gateflow" ]; then
     fi
 
     # Turnstile (jeśli zebrane)
-    if [ -n "$GATEFLOW_TURNSTILE_SECRET" ]; then
+    if [ -n "$SELLF_TURNSTILE_SECRET" ]; then
         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
     fi
 fi
@@ -897,7 +897,7 @@ echo "🚀 Uruchamiam instalację na serwerze..."
 echo ""
 
 # =============================================================================
-# BUILD FILE (dla GateFlow z prywatnego repo)
+# BUILD FILE (dla Sellf z prywatnego repo)
 # =============================================================================
 
 REMOTE_BUILD_FILE=""
@@ -911,7 +911,7 @@ if [ -n "$BUILD_FILE" ]; then
     fi
 
     echo "📦 Przesyłam plik instalacyjny na serwer..."
-    REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
+    REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
     server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
     echo "   ✅ Plik przesłany"
 
@@ -949,10 +949,10 @@ else
 fi
 
 # =============================================================================
-# KONFIGURACJA GATEFLOW PO INSTALACJI
+# KONFIGURACJA SELLF PO INSTALACJI
 # =============================================================================
 
-if [ "$APP_NAME" = "gateflow" ]; then
+if [ "$APP_NAME" = "sellf" ]; then
     # 1. Migracje bazy danych
     echo ""
     echo "🗄️  Przygotowanie bazy danych..."
@@ -968,9 +968,9 @@ if [ "$APP_NAME" = "gateflow" ]; then
 
     # 2. Skonsolidowana konfiguracja Supabase (Site URL, CAPTCHA, email templates)
     if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
-        # Użyj funkcji z lib/gateflow-setup.sh
+        # Użyj funkcji z lib/sellf-setup.sh
         # Przekazuje: domenę, secret turnstile, SSH alias (do pobrania szablonów email)
-        configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "$SSH_ALIAS" || {
+        configure_supabase_settings "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "$SSH_ALIAS" || {
             echo -e "${YELLOW}⚠️  Częściowa konfiguracja Supabase${NC}"
         }
     fi
@@ -1002,18 +1002,18 @@ if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
             if [ "$REQUIRES_DOMAIN_UPFRONT" = true ]; then
                 # Static sites - update Caddyfile
                 server_exec "sudo sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' /etc/caddy/Caddyfile && sudo systemctl reload caddy" 2>/dev/null || true
-            elif [ "$APP_NAME" != "gateflow" ]; then
-                # Docker apps - update docker-compose (skip for standalone apps like GateFlow)
+            elif [ "$APP_NAME" != "sellf" ]; then
+                # Docker apps - update docker-compose (skip for standalone apps like Sellf)
                 server_exec "cd $APP_STACK_DIR && sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' docker-compose.yaml && docker compose up -d" 2>/dev/null || true
             fi
         fi
 
-        # Dla GateFlow z Cytrus - zaktualizuj .env.local, Supabase i zapytaj o Turnstile
-        if [ "$APP_NAME" = "gateflow" ] && [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+        # Dla Sellf z Cytrus - zaktualizuj .env.local, Supabase i zapytaj o Turnstile
+        if [ "$APP_NAME" = "sellf" ] && [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
             # 1. Dodaj konfigurację domeny do .env.local (install.sh pominął dla DOMAIN="-")
             echo "📝 Aktualizuję .env.local z prawdziwą domeną..."
             server_exec "
-                cd /opt/stacks/gateflow/admin-panel
+                cd /opt/stacks/sellf/admin-panel
                 # Dodaj konfigurację domeny
                 cat >> .env.local <<'DOMAIN_EOF'
 
@@ -1031,18 +1031,18 @@ DOMAIN_EOF
             " 2>/dev/null || true
 
             # 2. Restart PM2 żeby załadować nową konfigurację
-            # Dla auto-cytrus początkowa instalacja używa PM2_NAME="gateflow"
+            # Dla auto-cytrus początkowa instalacja używa PM2_NAME="sellf"
             # Po poznaniu domeny możemy zachować tę nazwę (single instance)
-            echo "🔄 Restartuję GateFlow..."
+            echo "🔄 Restartuję Sellf..."
             server_exec "
                 export PATH=\"\$HOME/.bun/bin:\$PATH\"
-                cd /opt/stacks/gateflow/admin-panel/.next/standalone/admin-panel
-                pm2 delete gateflow 2>/dev/null || true
+                cd /opt/stacks/sellf/admin-panel/.next/standalone/admin-panel
+                pm2 delete sellf 2>/dev/null || true
                 unset HOSTNAME
                 set -a && source .env.local && set +a
                 export PORT=\${PORT:-3333}
                 export HOSTNAME=\${HOSTNAME:-::}
-                pm2 start server.js --name gateflow --interpreter node
+                pm2 start server.js --name sellf --interpreter node
                 pm2 save
             " 2>/dev/null || true
 
@@ -1064,7 +1064,7 @@ DOMAIN_EOF
                         if [ -f "$KEYS_FILE" ]; then
                             source "$KEYS_FILE"
                             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                                SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                                 echo -e "${GREEN}✅ Turnstile skonfigurowany!${NC}"
                             fi
                         fi
@@ -1081,8 +1081,8 @@ DOMAIN_EOF
                     # Mamy zapisane klucze dla tej domeny
                     source "$KEYS_FILE"
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                        GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                        configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "" || true
+                        SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                        configure_supabase_settings "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "" || true
                     fi
                 elif [ -f "$CF_TOKEN_FILE" ]; then
                     # Mamy token Cloudflare - utwórz klucze automatycznie
@@ -1094,7 +1094,7 @@ DOMAIN_EOF
                         if [ -f "$KEYS_FILE" ]; then
                             source "$KEYS_FILE"
                             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                                SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                                 echo -e "${GREEN}✅ Turnstile skonfigurowany automatycznie${NC}"
                             fi
                         fi
@@ -1180,15 +1180,15 @@ if [ "$NEEDS_DB" = true ]; then
     echo ""
 fi
 
-# Przypomnienia post-instalacyjne dla GateFlow
-if [ "$APP_NAME" = "gateflow" ]; then
+# Przypomnienia post-instalacyjne dla Sellf
+if [ "$APP_NAME" = "sellf" ]; then
     # Określ czy Turnstile jest skonfigurowany
     TURNSTILE_CONFIGURED=false
-    [ -n "$GATEFLOW_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
+    [ -n "$SELLF_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
 
     echo ""
     echo -e "${YELLOW}📋 Następne kroki:${NC}"
-    gateflow_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$GATEFLOW_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
+    sellf_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$SELLF_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
 fi
 
 # =============================================================================

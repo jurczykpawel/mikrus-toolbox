@@ -124,7 +124,7 @@ Toolbox jest automatycznie instalowany na serwerze (git clone z GitHub) jeśli j
 **Post-install WordPress** — `wp-init.sh` uruchamia się automatycznie podczas instalacji.
 Jedyny ręczny krok: otworzyć stronę w przeglądarce → kreator WordPress.
 
-### GateFlow (flagowy produkt)
+### Sellf (flagowy produkt)
 
 Platforma sprzedaży produktów cyfrowych (alternatywa Gumroad/EasyCart). Nie używa Dockera — działa na Bun + PM2 (Next.js standalone).
 
@@ -132,30 +132,30 @@ Platforma sprzedaży produktów cyfrowych (alternatywa Gumroad/EasyCart). Nie u�
 
 **MCP deployment** — pełny flow bez wklejania sekretów:
 ```
-# Krok 1: Agent wywołuje setup_gateflow_config() → otwiera przeglądarkę do logowania Supabase
+# Krok 1: Agent wywołuje setup_sellf_config() → otwiera przeglądarkę do logowania Supabase
 # Krok 2: User podaje jednorazowy kod weryfikacyjny (8 znaków, NIE jest sekretem)
-# Krok 3: Agent wywołuje setup_gateflow_config(verification_code="ABCD1234") → pobiera projekty
-# Krok 4: User wybiera projekt → agent wywołuje setup_gateflow_config(project_ref="xxx")
-#          → klucze pobrane automatycznie i zapisane do ~/.config/gateflow/deploy-config.env
-# Krok 5: Agent wywołuje deploy_app(app_name="gateflow") → config ładowany z pliku
+# Krok 3: Agent wywołuje setup_sellf_config(verification_code="ABCD1234") → pobiera projekty
+# Krok 4: User wybiera projekt → agent wywołuje setup_sellf_config(project_ref="xxx")
+#          → klucze pobrane automatycznie i zapisane do ~/.config/sellf/deploy-config.env
+# Krok 5: Agent wywołuje deploy_app(app_name="sellf") → config ładowany z pliku
 ```
 
-**BEZPIECZEŃSTWO:** NIE proś użytkownika o wklejanie kluczy (service_role, Stripe SK) w rozmowie — trafiłyby przez API. Używaj `setup_gateflow_config` — sekrety nigdy nie trafiają do rozmowy.
+**BEZPIECZEŃSTWO:** NIE proś użytkownika o wklejanie kluczy (service_role, Stripe SK) w rozmowie — trafiłyby przez API. Używaj `setup_sellf_config` — sekrety nigdy nie trafiają do rozmowy.
 
 **CLI deployment:**
 ```bash
 # Interaktywny (prowadzi za rączkę)
-./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh sellf --ssh=mikrus --domain-type=cytrus --domain=auto
 
-# Automatyczny (wymaga wcześniejszego setup-gateflow-config.sh)
-./local/deploy.sh gateflow --ssh=mikrus --yes
+# Automatyczny (wymaga wcześniejszego setup-sellf-config.sh)
+./local/deploy.sh sellf --ssh=mikrus --yes
 ```
 
 **Po instalacji:**
 - Pierwszy zarejestrowany użytkownik = admin
 - Stripe webhooks: `https://DOMENA/api/webhooks/stripe` (events: checkout.session.completed, payment_intent.succeeded)
 - Turnstile CAPTCHA: opcjonalny, `./local/setup-turnstile.sh DOMENA SSH_ALIAS`
-- Multi-instance: każda domena = osobny katalog (`/opt/stacks/gateflow-{subdomena}/`)
+- Multi-instance: każda domena = osobny katalog (`/opt/stacks/sellf-{subdomena}/`)
 
 ## Synchronizacja plików (sync.sh)
 
@@ -205,7 +205,7 @@ MCP: `deploy_site` z projektem PHP (wykrywa `index.php` lub pliki `.php`).
 
 Wszystkie w `apps/<nazwa>/install.sh`. Uruchamiane przez `deploy.sh`, nie ręcznie.
 
-n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, gateflow, minio, gotenberg, cookie-hub, mcp-docker, picoclaw, social-media-generator, coolify
+n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, picoclaw, social-media-generator, coolify
 
 Szczegóły konkretnej aplikacji (porty, wymagania, DB) → `apps/<app>/README.md` lub `GUIDE.md`
 

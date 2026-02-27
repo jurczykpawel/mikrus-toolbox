@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Supabase Setup for GateFlow
+# Mikrus Toolbox - Supabase Setup for Sellf
 # Konfiguruje Supabase i uruchamia migracje
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   ./local/setup-supabase-gateflow.sh [ssh_alias]
+#   ./local/setup-supabase-sellf.sh [ssh_alias]
 #
 # Przykłady:
-#   ./local/setup-supabase-gateflow.sh mikrus    # Konfiguracja + migracje na serwerze
-#   ./local/setup-supabase-gateflow.sh          # Tylko konfiguracja
+#   ./local/setup-supabase-sellf.sh mikrus    # Konfiguracja + migracje na serwerze
+#   ./local/setup-supabase-sellf.sh          # Tylko konfiguracja
 
 set -e
 
 SSH_ALIAS="${1:-}"
-GITHUB_REPO="jurczykpawel/gateflow"
+GITHUB_REPO="jurczykpawel/sellf"
 MIGRATIONS_PATH="supabase/migrations"
 
 # Kolory
@@ -25,11 +25,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Konfiguracja
-CONFIG_DIR="$HOME/.config/gateflow"
+CONFIG_DIR="$HOME/.config/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
 echo ""
-echo -e "${BLUE}🗄️  Supabase Setup for GateFlow${NC}"
+echo -e "${BLUE}🗄️  Supabase Setup for Sellf${NC}"
 echo ""
 
 # =============================================================================
@@ -94,13 +94,13 @@ fi
 # 2. TWORZENIE PROJEKTU SUPABASE
 # =============================================================================
 
-echo "GateFlow wymaga projektu Supabase (bezpłatny plan wystarczy)."
+echo "Sellf wymaga projektu Supabase (bezpłatny plan wystarczy)."
 echo ""
 echo "Jeśli nie masz jeszcze projektu, stwórz go teraz:"
 echo "   1. Otwórz: https://supabase.com/dashboard"
 echo "   2. Kliknij 'New Project'"
 echo "   3. Wybierz organizację i region (np. Frankfurt)"
-echo "   4. Wpisz nazwę (np. 'gateflow')"
+echo "   4. Wpisz nazwę (np. 'sellf')"
 echo "   5. Wygeneruj silne hasło do bazy"
 echo "   6. Kliknij 'Create new project'"
 echo ""
@@ -190,7 +190,7 @@ echo "💾 Zapisuję konfigurację..."
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
-# GateFlow - Supabase Configuration
+# Sellf - Supabase Configuration
 # Wygenerowano: $(date)
 
 SUPABASE_URL='$SUPABASE_URL'
@@ -237,12 +237,12 @@ echo ""
 echo "Konfiguracja zapisana w: $CONFIG_FILE"
 echo ""
 echo "Użycie z deploy.sh:"
-echo "   source ~/.config/gateflow/supabase.env"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   source ~/.config/sellf/supabase.env"
+echo "   ./local/deploy.sh sellf --ssh=mikrus --domain=gf.example.com"
 echo ""
 echo "Lub ręcznie:"
 echo "   SUPABASE_URL='$SUPABASE_URL' \\"
 echo "   SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' \\"
 echo "   SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY' \\"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   ./local/deploy.sh sellf --ssh=mikrus --domain=gf.example.com"
 echo ""

@@ -279,7 +279,7 @@ AI:   *checks apps/postiz/install.sh - uses schema separation*
 Planned improvements:
 - **Resource budgeting** - "You have 1.2GB free RAM. This app needs ~800MB - want to upgrade to Mikrus 3.0 first?"
 - **Post-deploy checklist** - security hardening, SSL verification, backup setup, monitoring
-- **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + GateFlow in the right order
+- **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + Sellf in the right order
 
 ## Development
 

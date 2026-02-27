@@ -27,7 +27,7 @@ Każda aplikacja to jeden `deploy.sh` — skrypt pyta o domenę, bazę danych, s
 - **Integracja z AI / MCP** — powiedz Claude'owi *"Zainstaluj n8n na serwerze"* i patrz jak sam deployuje, konfiguruje DNS i sprawdza logi
 - **Konfiguracje zoptymalizowane pod produkcję** — memory limity, health checki, auto-restart, logi bez zapychania dysku
 - **Zero platform overhead** — żadnego Kubernetes, Terraform ani panelu za $20/mies. Czysty Docker Compose + Bash
-- **29 przetestowanych aplikacji** — od automatyzacji (n8n) przez newsletter (Listmonk) po sklep z produktami cyfrowymi (GateFlow)
+- **29 przetestowanych aplikacji** — od automatyzacji (n8n) przez newsletter (Listmonk) po sklep z produktami cyfrowymi (Sellf)
 
 ---
 
@@ -91,7 +91,7 @@ Dla **solopreneurów, freelancerów i małych firm**, które:
 
 | Aplikacja | Zastępuje | Co robi |
 | :--- | :--- | :--- |
-| [**GateFlow**](apps/gateflow/) | Gumroad / EasyCart | **Sklep z produktami cyfrowymi.** 0 zł/mies, 0% prowizji. Lejki, kupony, Omnibus EU. |
+| [**Sellf**](apps/sellf/) | Gumroad / EasyCart | **Sklep z produktami cyfrowymi.** 0 zł/mies, 0% prowizji. Lejki, kupony, Omnibus EU. |
 | [**Listmonk**](apps/listmonk/) | Mailchimp | **Newsletter** na miliony maili za grosze (przez Amazon SES lub SMTP). |
 | [**Typebot**](apps/typebot/) | Typeform | **Chatboty i formularze.** Zbieraj leady, rób ankiety, sprzedawaj w rozmowie. |
 | [**Postiz**](apps/postiz/) | Buffer / Hootsuite | **Planuj posty** na X, LinkedIn, Instagram, Facebook, TikTok. ⚠️ Wymaga 4GB+ RAM. |
@@ -127,7 +127,7 @@ Te aplikacje to nie oddzielne wyspy. Razem tworzą **system operacyjny firmy**.
 **Przykład: automatyczna sprzedaż e-booka**
 
 ```
-Klient → Typebot (chatbot) → GateFlow (płatność Stripe)
+Klient → Typebot (chatbot) → Sellf (płatność Stripe)
                                     ↓
                               n8n (webhook)
                              /    |    \     \
@@ -138,7 +138,7 @@ Klient → Typebot (chatbot) → GateFlow (płatność Stripe)
 ```
 
 1. **Typebot** — klient rozmawia z botem, który bada potrzeby
-2. **GateFlow** — bot kieruje do płatności za e-booka
+2. **Sellf** — bot kieruje do płatności za e-booka
 3. **n8n** — wykrywa płatność i automatycznie: dodaje klienta do CRM (**NocoDB**), wysyła e-booka mailem, wystawia fakturę, zapisuje do newslettera (**Listmonk**)
 4. **Umami** — śledzi konwersję
 
@@ -249,7 +249,7 @@ claude
 | *"Skonfiguruj backup do Google Drive"* | Prowadzi przez setup rclone i cron |
 | *"Sprawdź czy wszystkie kontenery działają"* | Łączy się po SSH, sprawdza `docker ps`, raportuje problemy |
 | *"Wystaw Dockge pod domeną panel.mojafirma.pl"* | Konfiguruje DNS przez Cloudflare, ustawia HTTPS przez Caddy |
-| *"Postaw mi sklep z produktami cyfrowymi"* | Prowadzi przez konfigurację Supabase, deployuje GateFlow |
+| *"Postaw mi sklep z produktami cyfrowymi"* | Prowadzi przez konfigurację Supabase, deployuje Sellf |
 | *"Co mogę zainstalować?"* | Wyświetla 29+ aplikacji z opisami i wymaganiami |
 
 ### 8 narzędzi MCP
@@ -368,7 +368,7 @@ Cała konfiguracja to dwie komendy:
 | Listmonk | Mailchimp (5k kontaktów) | $50+ | **0 zł** |
 | Typebot | Typeform Pro | $50+ | **0 zł** |
 | NocoDB | Airtable Pro | $20+ | **0 zł** |
-| GateFlow | Gumroad (10% prowizji) | $$$ | **0 zł** |
+| Sellf | Gumroad (10% prowizji) | $$$ | **0 zł** |
 | Uptime Kuma | UptimeRobot Pro | $7+ | **0 zł** |
 | Vaultwarden | 1Password Teams | $8/user | **0 zł** |
 | Postiz | Buffer Pro | $15+ | **0 zł** |
@@ -398,7 +398,7 @@ Cała konfiguracja to dwie komendy:
 | Podstawa (Caddy + Dockge) | Mikrus 2.1 | ~100MB |
 | + n8n | Mikrus 2.1 | ~500MB |
 | + Listmonk + Uptime Kuma | Mikrus 2.1 | ~800MB |
-| + Typebot + GateFlow | Mikrus 3.0 | ~1.5GB |
+| + Typebot + Sellf | Mikrus 3.0 | ~1.5GB |
 | Pełny stack (10+ narzędzi) | Mikrus 3.0 | ~1.8GB |
 | Coolify (PaaS, 280+ apek) | Mikrus 4.1 | ~500-800MB (platforma) |
 
@@ -468,7 +468,7 @@ Uruchom `deploy.sh` ponownie — skrypt wykryje istniejącą instalację i zaktu
 
 ### Zrobione
 
-- [x] **29 przetestowanych aplikacji** — od n8n po GateFlow
+- [x] **29 przetestowanych aplikacji** — od n8n po Sellf
 - [x] **Serwer MCP** — zarządzanie serwerem przez AI (Claude Desktop, Claude Code, Cursor)
 - [x] **Integracja z Cloudflare** — automatyczna konfiguracja DNS
 - [x] **Bundled bazy danych** — Redis i SQLite wbudowane w kontenery
@@ -486,7 +486,7 @@ Uruchom `deploy.sh` ponownie — skrypt wykryje istniejącą instalację i zaktu
 
 - [ ] **GUI dashboard** — webowy panel do zarządzania aplikacjami bez terminala
 - [ ] **Więcej aplikacji** — Nextcloud, Grafana, Plausible, Gitea
-- [ ] **One-click stacks** — gotowe zestawy (np. "solopreneur stack" = n8n + Listmonk + GateFlow + Uptime Kuma)
+- [ ] **One-click stacks** — gotowe zestawy (np. "solopreneur stack" = n8n + Listmonk + Sellf + Uptime Kuma)
 - [ ] **Automatyczne aktualizacje** — Watchtower / Diun z powiadomieniami
 - [ ] **Monitoring zasobów** — alerty gdy RAM/dysk się kończą
 
@@ -568,7 +568,7 @@ tests/           → Testy automatyczne
 Buduję narzędzia dla solopreneurów, którzy wolą automatyzować niż klikać. Mikrus Toolbox to zestaw, którego sam używam do prowadzenia biznesu.
 
 - [me.techskills.academy](https://me.techskills.academy) — moje linki
-- [GateFlow](https://github.com/jurczykpawel/gateflow) — open-source sklep z produktami cyfrowymi
+- [Sellf](https://github.com/jurczykpawel/sellf) — open-source sklep z produktami cyfrowymi
 - [Mikrus n8n Manager](https://manager.cytr.us/) — GUI do instalacji n8n na Mikrusie
 
 ---

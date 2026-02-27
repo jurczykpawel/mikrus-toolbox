@@ -1,4 +1,4 @@
-# GateFlow - Twój Własny System Sprzedaży Produktów Cyfrowych
+# Sellf - Twój Własny System Sprzedaży Produktów Cyfrowych
 
 **Open source alternatywa dla Gumroad, EasyCart, Teachable.**
 Sprzedawaj e-booki, kursy, szablony i licencje bez miesięcznych opłat i prowizji platformy.
@@ -12,7 +12,7 @@ Sprzedawaj e-booki, kursy, szablony i licencje bez miesięcznych opłat i prowiz
 
 ## Dwa tryby instalacji
 
-GateFlow obsługuje **dwa tryby** instalacji:
+Sellf obsługuje **dwa tryby** instalacji:
 
 | Tryb | Dla kogo | Opis |
 |------|----------|------|
@@ -26,7 +26,7 @@ GateFlow obsługuje **dwa tryby** instalacji:
 ### Tryb interaktywny (najprostszy)
 
 ```bash
-./local/deploy.sh gateflow --ssh=mikrus
+./local/deploy.sh sellf --ssh=mikrus
 ```
 
 Skrypt przeprowadzi Cię przez:
@@ -40,10 +40,10 @@ Skrypt przeprowadzi Cię przez:
 
 ```bash
 # KROK 1: Jednorazowa konfiguracja (zbiera i zapisuje wszystkie klucze)
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 
 # KROK 2: Deployment (w pełni automatyczny, bez pytań)
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 ```
 
 ---
@@ -57,7 +57,7 @@ Skrypt przeprowadzi Cię przez:
 | **Stripe** | 2.9% + 1.20 zł/transakcja | Płatności | Nie* |
 | **Cloudflare** | Darmowe | Turnstile CAPTCHA | Nie |
 
-*Stripe możesz skonfigurować później w panelu GateFlow.
+*Stripe możesz skonfigurować później w panelu Sellf.
 
 ### Przed instalacją załóż konta:
 
@@ -72,20 +72,20 @@ Skrypt przeprowadzi Cię przez:
 ### Podstawowa komenda
 
 ```bash
-./local/deploy.sh gateflow --ssh=ALIAS
+./local/deploy.sh sellf --ssh=ALIAS
 ```
 
 ### Parametry opcjonalne
 
 ```bash
 # Z domeną Cytrus (automatyczna subdomena *.byst.re)
-./local/deploy.sh gateflow --ssh=mikrus --domain=auto --domain-type=cytrus
+./local/deploy.sh sellf --ssh=mikrus --domain=auto --domain-type=cytrus
 
 # Z własną domeną (Cloudflare DNS)
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
 
 # Z konkretnym projektem Supabase (pomija wybór z listy)
-./local/deploy.sh gateflow --ssh=mikrus --supabase-project=abcdefghijk
+./local/deploy.sh sellf --ssh=mikrus --supabase-project=abcdefghijk
 ```
 
 ### Co się dzieje podczas instalacji
@@ -123,10 +123,10 @@ Tryb automatyczny wymaga **wcześniejszego zebrania kluczy** za pomocą skryptu 
 ### Krok 1: Zbieranie kluczy
 
 ```bash
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 ```
 
-Skrypt zbiera i zapisuje do `~/.config/gateflow/deploy-config.env`:
+Skrypt zbiera i zapisuje do `~/.config/sellf/deploy-config.env`:
 - Token Supabase + klucze projektu
 - Klucze Stripe (opcjonalne)
 - Klucze Turnstile (opcjonalne)
@@ -136,7 +136,7 @@ Skrypt zbiera i zapisuje do `~/.config/gateflow/deploy-config.env`:
 ### Krok 2: Automatyczny deployment
 
 ```bash
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 ```
 
 Flaga `--yes` oznacza:
@@ -144,7 +144,7 @@ Flaga `--yes` oznacza:
 - Użycie zapisanej konfiguracji
 - Automatyczna konfiguracja Turnstile (jeśli masz token Cloudflare)
 
-### Parametry setup-gateflow-config.sh
+### Parametry setup-sellf-config.sh
 
 | Parametr | Opis | Przykład |
 |----------|------|----------|
@@ -160,24 +160,24 @@ Flaga `--yes` oznacza:
 
 ```bash
 # Pełna interaktywna konfiguracja
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 
 # Szybka konfiguracja z automatyczną domeną Cytrus
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
+./local/setup-sellf-config.sh --ssh=mikrus --domain=auto
 
 # Bez Stripe i Turnstile (tylko Supabase)
-./local/setup-gateflow-config.sh --ssh=mikrus --no-stripe --no-turnstile
+./local/setup-sellf-config.sh --ssh=mikrus --no-stripe --no-turnstile
 
 # Z konkretnym projektem Supabase
-./local/setup-gateflow-config.sh --ssh=mikrus --supabase-project=grinnleqqyygznnbpjzc --domain=auto
+./local/setup-sellf-config.sh --ssh=mikrus --supabase-project=grinnleqqyygznnbpjzc --domain=auto
 
 # Z własną domeną Cloudflare
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
+./local/setup-sellf-config.sh --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
 ```
 
 ---
 
-## Parametry deploy.sh (dla GateFlow)
+## Parametry deploy.sh (dla Sellf)
 
 ### Obowiązkowe
 
@@ -211,22 +211,22 @@ Flaga `--yes` oznacza:
 
 ```bash
 # Interaktywny z automatyczną domeną
-./local/deploy.sh gateflow --ssh=mikrus --domain=auto --domain-type=cytrus
+./local/deploy.sh sellf --ssh=mikrus --domain=auto --domain-type=cytrus
 
 # Automatyczny (wymaga wcześniejszej konfiguracji)
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 
 # Automatyczny z konkretnym projektem Supabase
-./local/deploy.sh gateflow --ssh=mikrus --supabase-project=abc123 --yes
+./local/deploy.sh sellf --ssh=mikrus --supabase-project=abc123 --yes
 
 # Z własną domeną Cloudflare
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare --yes
+./local/deploy.sh sellf --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare --yes
 
 # Aktualizacja
-./local/deploy.sh gateflow --ssh=mikrus --update
+./local/deploy.sh sellf --ssh=mikrus --update
 
 # Z lokalnym buildem (prywatne repo)
-./local/deploy.sh gateflow --ssh=mikrus --build-file=~/Downloads/gateflow-build.tar.gz --yes
+./local/deploy.sh sellf --ssh=mikrus --build-file=~/Downloads/sellf-build.tar.gz --yes
 ```
 
 ---
@@ -235,11 +235,11 @@ Flaga `--yes` oznacza:
 
 ### Case 1: Pierwsza instalacja (początkujący)
 
-**Sytuacja:** Pierwszy raz instalujesz GateFlow, chcesz żeby skrypt prowadził za rączkę.
+**Sytuacja:** Pierwszy raz instalujesz Sellf, chcesz żeby skrypt prowadził za rączkę.
 
 ```bash
 # Po prostu uruchom
-./local/deploy.sh gateflow --ssh=mikrus
+./local/deploy.sh sellf --ssh=mikrus
 
 # Skrypt:
 # 1. Otworzy przeglądarkę do logowania Supabase
@@ -255,10 +255,10 @@ Flaga `--yes` oznacza:
 
 ```bash
 # JEDNORAZOWO (na lokalnej maszynie):
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
+./local/setup-sellf-config.sh --ssh=mikrus --domain=auto
 
 # W CI/CD:
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 ```
 
 ### Case 3: Wiele serwerów Mikrus
@@ -267,12 +267,12 @@ Flaga `--yes` oznacza:
 
 ```bash
 # Konfiguracja dla każdego serwera
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
-./local/setup-gateflow-config.sh --ssh=gracz --domain=auto
+./local/setup-sellf-config.sh --ssh=mikrus --domain=auto
+./local/setup-sellf-config.sh --ssh=gracz --domain=auto
 
 # Deploy (użyje zapisanej konfiguracji)
-./local/deploy.sh gateflow --ssh=mikrus --yes
-./local/deploy.sh gateflow --ssh=gracz --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=gracz --yes
 ```
 
 ### Case 4: Własna domena z Cloudflare
@@ -284,13 +284,13 @@ Flaga `--yes` oznacza:
 #    shop.mojastrona.pl → 1.2.3.4 (IP z panelu Mikrus)
 
 # 2. Konfiguracja
-./local/setup-gateflow-config.sh \
+./local/setup-sellf-config.sh \
   --ssh=mikrus \
   --domain=shop.mojastrona.pl \
   --domain-type=cloudflare
 
 # 3. Deploy
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 ```
 
 ### Case 5: Wiele projektów Supabase na jednym koncie
@@ -302,10 +302,10 @@ Flaga `--yes` oznacza:
 # https://supabase.com/dashboard/project/TUTAJ_REF
 
 # Deploy na projekt testowy
-./local/deploy.sh gateflow --ssh=mikrus-staging --supabase-project=abc123test --yes
+./local/deploy.sh sellf --ssh=mikrus-staging --supabase-project=abc123test --yes
 
 # Deploy na projekt produkcyjny
-./local/deploy.sh gateflow --ssh=mikrus-prod --supabase-project=xyz789prod --yes
+./local/deploy.sh sellf --ssh=mikrus-prod --supabase-project=xyz789prod --yes
 ```
 
 ### Case 6: Reinstalacja po wyczyszczeniu serwera
@@ -313,26 +313,26 @@ Flaga `--yes` oznacza:
 **Sytuacja:** Wyczyściłeś serwer, ale masz zapisaną konfigurację.
 
 ```bash
-# Konfiguracja jest w ~/.config/gateflow/deploy-config.env
+# Konfiguracja jest w ~/.config/sellf/deploy-config.env
 # Po prostu uruchom:
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh sellf --ssh=mikrus --yes
 
 # Skrypt użyje zapisanych kluczy Supabase, domeny, etc.
 ```
 
-### Case 7: Aktualizacja GateFlow
+### Case 7: Aktualizacja Sellf
 
 **Sytuacja:** Wyszła nowa wersja, chcesz zaktualizować.
 
 ```bash
 # Prosta aktualizacja (auto-wykrywa instancję)
-./local/deploy.sh gateflow --ssh=mikrus --update
+./local/deploy.sh sellf --ssh=mikrus --update
 
 # Aktualizacja konkretnej instancji
-./local/deploy.sh gateflow --ssh=mikrus --update --domain=shop.example.com
+./local/deploy.sh sellf --ssh=mikrus --update --domain=shop.example.com
 
 # Aktualizacja z lokalnym buildem (prywatne repo)
-./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
+./local/deploy.sh sellf --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz
 ```
 
 ### Case 8: Wiele instancji na jednym serwerze (ta sama baza)
@@ -341,20 +341,20 @@ Flaga `--yes` oznacza:
 
 ```bash
 # Pierwsza instancja - sklep główny
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
 
 # Druga instancja - kursy online
-./local/deploy.sh gateflow --ssh=mikrus --domain=courses.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=mikrus --domain=courses.example.com --domain-type=cloudflare
 
 # Trzecia instancja - inna domena
-./local/deploy.sh gateflow --ssh=mikrus --domain=digital.innadomena.pl --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=mikrus --domain=digital.innadomena.pl --domain-type=cloudflare
 ```
 
 **Wynik na serwerze:**
 ```
-/opt/stacks/gateflow-shop/      # PM2: gateflow-shop,    port: 3333
-/opt/stacks/gateflow-courses/   # PM2: gateflow-courses, port: 3334
-/opt/stacks/gateflow-digital/   # PM2: gateflow-digital, port: 3335
+/opt/stacks/sellf-shop/      # PM2: sellf-shop,    port: 3333
+/opt/stacks/sellf-courses/   # PM2: sellf-courses, port: 3334
+/opt/stacks/sellf-digital/   # PM2: sellf-digital, port: 3335
 ```
 
 Każda instancja:
@@ -364,7 +364,7 @@ Każda instancja:
 
 **Aktualizacja konkretnej instancji:**
 ```bash
-./local/deploy.sh gateflow --ssh=mikrus --update --domain=courses.example.com
+./local/deploy.sh sellf --ssh=mikrus --update --domain=courses.example.com
 ```
 
 ### Case 9: Wiele instancji z różnymi bazami danych
@@ -375,22 +375,22 @@ Każda instancja:
 # Sprawdź swoje projekty Supabase
 # https://supabase.com/dashboard/projects
 
-# Instancja 1: Produkcja (projekt: gateflow-prod)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instancja 1: Produkcja (projekt: sellf-prod)
+./local/deploy.sh sellf --ssh=mikrus \
   --supabase-project=abc123prod \
   --domain=shop.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instancja 2: Testy (projekt: gateflow-test)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instancja 2: Testy (projekt: sellf-test)
+./local/deploy.sh sellf --ssh=mikrus \
   --supabase-project=xyz789test \
   --domain=test.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instancja 3: Demo dla klienta (projekt: gateflow-demo)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instancja 3: Demo dla klienta (projekt: sellf-demo)
+./local/deploy.sh sellf --ssh=mikrus \
   --supabase-project=demo456client \
   --domain=demo.example.com \
   --domain-type=cloudflare \
@@ -399,9 +399,9 @@ Każda instancja:
 
 **Wynik na serwerze:**
 ```
-/opt/stacks/gateflow-shop/   # Supabase: abc123prod,  port: 3333
-/opt/stacks/gateflow-test/   # Supabase: xyz789test,  port: 3334
-/opt/stacks/gateflow-demo/   # Supabase: demo456client, port: 3335
+/opt/stacks/sellf-shop/   # Supabase: abc123prod,  port: 3333
+/opt/stacks/sellf-test/   # Supabase: xyz789test,  port: 3334
+/opt/stacks/sellf-demo/   # Supabase: demo456client, port: 3335
 ```
 
 **Kluczowy parametr:** `--supabase-project=REF` pozwala wybrać inny projekt Supabase dla każdej instancji.
@@ -409,7 +409,7 @@ Każda instancja:
 **Weryfikacja konfiguracji:**
 ```bash
 # Sprawdź który projekt używa która instancja
-ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
+ssh mikrus "grep SUPABASE_URL /opt/stacks/sellf-*/admin-panel/.env.local"
 ```
 
 ---
@@ -419,8 +419,8 @@ ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ### Na lokalnej maszynie
 
 ```
-~/.config/gateflow/
-├── deploy-config.env    # Główna konfiguracja (setup-gateflow-config.sh)
+~/.config/sellf/
+├── deploy-config.env    # Główna konfiguracja (setup-sellf-config.sh)
 └── supabase.env         # Backup kluczy Supabase
 
 ~/.config/supabase/
@@ -436,16 +436,16 @@ ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 
 ```
 # Pojedyncza instancja (auto-domena lub pierwsza instalacja)
-~/gateflow/
+~/sellf/
 ├── admin-panel/
 │   ├── .env.local           # Konfiguracja aplikacji
 │   └── .next/standalone/    # Zbudowana aplikacja
 └── .env.local.backup        # Backup (przy update)
 
 # Multi-instance (każda domena = osobny katalog)
-~/gateflow-shop/             # domena: shop.example.com
-~/gateflow-courses/          # domena: courses.example.com
-~/gateflow-demo/             # domena: demo.example.com
+~/sellf-shop/             # domena: shop.example.com
+~/sellf-courses/          # domena: courses.example.com
+~/sellf-demo/             # domena: demo.example.com
 ```
 
 ---
@@ -457,27 +457,27 @@ ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ssh mikrus "pm2 status"
 
 # Logi pojedynczej instancji
-ssh mikrus "pm2 logs gateflow-admin"           # auto-domena
-ssh mikrus "pm2 logs gateflow-shop"            # shop.example.com
+ssh mikrus "pm2 logs sellf-admin"           # auto-domena
+ssh mikrus "pm2 logs sellf-shop"            # shop.example.com
 
 # Restart
-ssh mikrus "pm2 restart gateflow-admin"
+ssh mikrus "pm2 restart sellf-admin"
 
-# Restart wszystkich instancji GateFlow
+# Restart wszystkich instancji Sellf
 ssh mikrus "pm2 restart all"
 
 # Logi na żywo
-ssh mikrus "pm2 logs gateflow-shop --lines 50"
+ssh mikrus "pm2 logs sellf-shop --lines 50"
 
 # Sprawdź konfigurację Supabase wszystkich instancji
-ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow*/admin-panel/.env.local"
+ssh mikrus "grep SUPABASE_URL /opt/stacks/sellf*/admin-panel/.env.local"
 ```
 
 > **Uwaga:** Jeśli `pm2: command not found`, dodaj PATH ręcznie:
 > ```bash
 > ssh mikrus "echo 'export PATH=\"\$HOME/.bun/bin:\$PATH\"' >> ~/.bashrc"
 > ```
-> Nowe instalacje GateFlow dodają to automatycznie.
+> Nowe instalacje Sellf dodają to automatycznie.
 
 ---
 
@@ -517,8 +517,8 @@ SSH_ALIAS=mikrus ./local/setup-supabase-migrations.sh
 4. Skopiuj Signing Secret (`whsec_...`)
 5. Dodaj do konfiguracji:
    ```bash
-   ssh mikrus "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/gateflow/admin-panel/.env.local"
-   ssh mikrus "pm2 restart gateflow-admin"
+   ssh mikrus "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/sellf/admin-panel/.env.local"
+   ssh mikrus "pm2 restart sellf-admin"
    ```
 
 ---
@@ -529,13 +529,13 @@ SSH_ALIAS=mikrus ./local/setup-supabase-migrations.sh
 
 A: Interaktywny zadaje pytania krok po kroku - idealny na początek. Automatyczny używa zapisanych kluczy i flagi `--yes` - idealny do CI/CD i powtarzalnych deployów.
 
-**Q: Czy muszę uruchamiać setup-gateflow-config.sh przed każdym deployem?**
+**Q: Czy muszę uruchamiać setup-sellf-config.sh przed każdym deployem?**
 
 A: Nie! Wystarczy raz. Konfiguracja jest zapisywana i używana automatycznie przy kolejnych deployach z `--yes`.
 
 **Q: Co jeśli chcę zmienić projekt Supabase?**
 
-A: Uruchom ponownie `./local/setup-gateflow-config.sh` i wybierz inny projekt, lub użyj `--supabase-project=NOWY_REF`.
+A: Uruchom ponownie `./local/setup-sellf-config.sh` i wybierz inny projekt, lub użyj `--supabase-project=NOWY_REF`.
 
 **Q: Czy pierwszy user to admin?**
 
@@ -553,10 +553,10 @@ A: W URL projektu: `https://supabase.com/dashboard/project/TUTAJ_REF`
 
 A: Nie. To opcjonalna ochrona CAPTCHA. Możesz skonfigurować później lub pominąć.
 
-**Q: Czy mogę mieć kilka instancji GateFlow na jednym serwerze?**
+**Q: Czy mogę mieć kilka instancji Sellf na jednym serwerze?**
 
 A: Tak! Każda instancja musi mieć inną domenę. System automatycznie:
-- Tworzy oddzielny katalog (`/opt/stacks/gateflow-{subdomena}/`)
+- Tworzy oddzielny katalog (`/opt/stacks/sellf-{subdomena}/`)
 - Przydziela kolejny port (3333, 3334, 3335...)
 - Tworzy oddzielny proces PM2
 
@@ -564,21 +564,21 @@ Możesz też użyć różnych projektów Supabase dla każdej instancji za pomoc
 
 **Q: Jak sprawdzić status wielu instancji?**
 
-A: `ssh mikrus "pm2 list"` - pokaże wszystkie procesy GateFlow z ich statusem.
+A: `ssh mikrus "pm2 list"` - pokaże wszystkie procesy Sellf z ich statusem.
 
 ---
 
 ## Porównanie kosztów
 
-| | EasyCart | Gumroad | **GateFlow** |
+| | EasyCart | Gumroad | **Sellf** |
 |---|---|---|---|
 | Opłata miesięczna | 100 zł/mies | 10$/mies | **0 zł** |
 | Prowizja od sprzedaży | 1-3% | 10% | **0%** |
 | Własność danych | - | - | **Tak** |
 | Przy 300k zł/rok | ~16-19k zł | ~30k zł | **~8.7k zł** |
 
-**Oszczędzasz 7,000-20,000 zł rocznie** hostując GateFlow na Mikrusie.
+**Oszczędzasz 7,000-20,000 zł rocznie** hostując Sellf na Mikrusie.
 
 ---
 
-> GateFlow: https://github.com/jurczykpawel/gateflow
+> Sellf: https://github.com/jurczykpawel/sellf

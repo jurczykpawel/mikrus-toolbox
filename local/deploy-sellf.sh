@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Mikrus Toolbox - Sellf Deploy (prod + demo)
-# Jedną komendą aktualizuje oba środowiska Sellf (GateFlow) na serwerze.
+# Jedną komendą aktualizuje oba środowiska Sellf (Sellf) na serwerze.
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   ./local/deploy-gateflow.sh                  # deploy prod + demo z GitHub
-#   ./local/deploy-gateflow.sh --restart        # restart bez aktualizacji
-#   ./local/deploy-gateflow.sh --only-prod      # tylko prod
-#   ./local/deploy-gateflow.sh --only-demo      # tylko demo
-#   ./local/deploy-gateflow.sh --ssh=ALIAS      # inny serwer (domyślnie: mikrus)
+#   ./local/deploy-sellf.sh                  # deploy prod + demo z GitHub
+#   ./local/deploy-sellf.sh --restart        # restart bez aktualizacji
+#   ./local/deploy-sellf.sh --only-prod      # tylko prod
+#   ./local/deploy-sellf.sh --only-demo      # tylko demo
+#   ./local/deploy-sellf.sh --ssh=ALIAS      # inny serwer (domyślnie: mikrus)
 #
 # Środowiska:
 #   prod  → sellf-tsa    /opt/stacks/sellf-tsa    port 3333
@@ -17,8 +17,8 @@
 #
 # Pierwsze uruchomienie (migracja):
 #   Skrypt automatycznie utworzy katalogi i skopiuje .env.local ze starych lokalizacji:
-#   prod:  /scripts/docker-compose/gateflow/admin-panel/.env.local
-#   demo:  /opt/stacks/gateflow-gateflow/admin-panel/.env.local
+#   prod:  /scripts/docker-compose/sellf/admin-panel/.env.local
+#   demo:  /opt/stacks/sellf-sellf/admin-panel/.env.local
 #
 # Wymagania:
 #   - ~/.config/sellf/deploy-config.env (setup: ./local/setup-sellf-config.sh)
@@ -41,13 +41,13 @@ NC='\033[0m'
 PROD_INSTANCE="sellf-tsa"
 PROD_DIR="/opt/stacks/sellf-tsa"
 PROD_PORT=3333
-PROD_OLD_ENV="/scripts/docker-compose/gateflow/admin-panel/.env.local"
+PROD_OLD_ENV="/scripts/docker-compose/sellf/admin-panel/.env.local"
 
 # demo
 DEMO_INSTANCE="sellf-demo"
 DEMO_DIR="/opt/stacks/sellf-demo"
 DEMO_PORT=3334
-DEMO_OLD_ENV="/opt/stacks/gateflow-gateflow/admin-panel/.env.local"
+DEMO_OLD_ENV="/opt/stacks/sellf-sellf/admin-panel/.env.local"
 
 # =============================================================================
 # DOMYŚLNE WARTOŚCI
@@ -71,7 +71,7 @@ for arg in "$@"; do
         --help|-h)
             cat <<EOF
 
-Użycie: ./local/deploy-gateflow.sh [opcje]
+Użycie: ./local/deploy-sellf.sh [opcje]
 
 Opcje:
   --ssh=ALIAS   SSH alias z ~/.ssh/config (domyślnie: mikrus)
@@ -173,7 +173,7 @@ if [ "$SKIP_PROD" = false ]; then
         DEPLOY_ARGS="--ssh=$SSH_ALIAS --update --instance=$PROD_INSTANCE --yes"
         [ "$RESTART_ONLY" = true ] && DEPLOY_ARGS="$DEPLOY_ARGS --restart"
 
-        if bash "$DEPLOY" gateflow $DEPLOY_ARGS; then
+        if bash "$DEPLOY" sellf $DEPLOY_ARGS; then
             echo ""
             echo -e "${GREEN}✅ PROD gotowy${NC}"
         else
@@ -201,7 +201,7 @@ if [ "$SKIP_DEMO" = false ]; then
         DEPLOY_ARGS="--ssh=$SSH_ALIAS --update --instance=$DEMO_INSTANCE --yes"
         [ "$RESTART_ONLY" = true ] && DEPLOY_ARGS="$DEPLOY_ARGS --restart"
 
-        if bash "$DEPLOY" gateflow $DEPLOY_ARGS; then
+        if bash "$DEPLOY" sellf $DEPLOY_ARGS; then
             echo ""
             echo -e "${GREEN}✅ DEMO gotowe${NC}"
         else

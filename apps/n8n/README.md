@@ -105,7 +105,7 @@ To łączy się z kontenera do hosta, gdzie są zainstalowane narzędzia.
 n8n to "mózg" Twojej automatyzacji:
 
 ```
-[GateFlow - sprzedaż] ──webhook──→ [n8n]
+[Sellf - sprzedaż] ──webhook──→ [n8n]
 [Typebot - chatbot]  ──webhook──→   │
 [Uptime Kuma - alert] ─webhook──→   │
                                     ↓

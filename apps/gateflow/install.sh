@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow
+# Mikrus Toolbox - Sellf
 # Self-hosted digital products sales platform (Gumroad/EasyCart alternative)
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=500  # gateflow (Next.js app ~500MB)
+# IMAGE_SIZE_MB=500  # sellf (Next.js app ~500MB)
 #
 # Wymagane:
 #   - Mikrus 3.0+ (1GB RAM)
@@ -19,8 +19,8 @@
 
 set -e
 
-APP_NAME="gateflow"
-GITHUB_REPO="jurczykpawel/gateflow"
+APP_NAME="sellf"
+GITHUB_REPO="jurczykpawel/sellf"
 
 # =============================================================================
 # MULTI-INSTANCE: nazwa instancji z domeny
@@ -42,11 +42,11 @@ fi
 # Ustaw ścieżki i nazwy na podstawie instancji
 # Instalujemy do /opt/stacks żeby backup działał automatycznie
 if [ -n "$INSTANCE_NAME" ]; then
-    INSTALL_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
-    PM2_NAME="gateflow-${INSTANCE_NAME}"
+    INSTALL_DIR="/opt/stacks/sellf-${INSTANCE_NAME}"
+    PM2_NAME="sellf-${INSTANCE_NAME}"
 else
-    INSTALL_DIR="/opt/stacks/gateflow"
-    PM2_NAME="gateflow"
+    INSTALL_DIR="/opt/stacks/sellf"
+    PM2_NAME="sellf"
 
     # Sprawdź czy katalog już istnieje (zapobiegaj nadpisaniu przy auto-cytrus)
     if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
@@ -54,18 +54,18 @@ else
         echo ""
         echo "   Auto-cytrus (--domain=-) wspiera tylko JEDNĄ instancję."
         echo "   Dla wielu instancji użyj konkretnych domen:"
-        echo "   ./local/deploy.sh gateflow --domain=shop.example.com"
-        echo "   ./local/deploy.sh gateflow --domain=test.example.com"
+        echo "   ./local/deploy.sh sellf --domain=shop.example.com"
+        echo "   ./local/deploy.sh sellf --domain=test.example.com"
         echo ""
         echo "   Lub usuń istniejącą instalację:"
-        echo "   pm2 delete gateflow && rm -rf $INSTALL_DIR"
+        echo "   pm2 delete sellf && rm -rf $INSTALL_DIR"
         exit 1
     fi
 fi
 
 PORT=${PORT:-3333}
 
-echo "--- 💰 GateFlow Setup ---"
+echo "--- 💰 Sellf Setup ---"
 echo ""
 if [ -n "$INSTANCE_NAME" ]; then
     echo "📦 Instancja: $INSTANCE_NAME"
@@ -157,9 +157,9 @@ cd "$INSTALL_DIR/admin-panel"
 
 # Sprawdź czy już mamy pliki (aktualizacja vs świeża instalacja)
 if [ -d ".next/standalone" ]; then
-    echo "✅ GateFlow już pobrany - używam istniejących plików"
+    echo "✅ Sellf już pobrany - używam istniejących plików"
 else
-    echo "📥 Pobieram GateFlow..."
+    echo "📥 Pobieram Sellf..."
 
     # Sprawdź czy mamy lokalny plik (przekazany przez deploy.sh)
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
@@ -173,33 +173,33 @@ else
     else
         # Pobierz z GitHub
         # Spróbuj /latest (wymaga oznaczonego "latest release" na GitHub)
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
 
         if ! curl -fsSL "$RELEASE_URL" 2>/dev/null | tar -xz 2>/dev/null; then
-            # Fallback: znajdź najnowszy release z artefaktem gateflow-build.tar.gz
+            # Fallback: znajdź najnowszy release z artefaktem sellf-build.tar.gz
             echo "   /latest niedostępny, szukam najnowszego releasu z buildem..."
             RELEASE_URL=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases" 2>/dev/null \
-                | grep -m1 "browser_download_url.*gateflow-build" | sed 's/.*: "\(.*\)".*/\1/')
+                | grep -m1 "browser_download_url.*sellf-build" | sed 's/.*: "\(.*\)".*/\1/')
 
             if [ -n "$RELEASE_URL" ]; then
                 LATEST_TAG=$(echo "$RELEASE_URL" | sed 's|.*/download/\([^/]*\)/.*|\1|')
                 echo "   Znaleziono: $LATEST_TAG"
                 if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
                     echo ""
-                    echo "❌ Nie udało się pobrać GateFlow ($LATEST_TAG)"
+                    echo "❌ Nie udało się pobrać Sellf ($LATEST_TAG)"
                     exit 1
                 fi
             else
                 echo ""
-                echo "❌ Nie udało się pobrać GateFlow z GitHub"
+                echo "❌ Nie udało się pobrać Sellf z GitHub"
                 echo ""
                 echo "   Możliwe przyczyny:"
-                echo "   • Brak releasu z artefaktem gateflow-build.tar.gz"
+                echo "   • Brak releasu z artefaktem sellf-build.tar.gz"
                 echo "   • Repozytorium jest prywatne"
                 echo "   • Brak połączenia z internetem"
                 echo ""
                 echo "   Rozwiązanie: Pobierz plik ręcznie i użyj flagi --build-file:"
-                echo "   ./local/deploy.sh gateflow --ssh=mikrus --build-file=~/Downloads/gateflow-build.tar.gz"
+                echo "   ./local/deploy.sh sellf --ssh=mikrus --build-file=~/Downloads/sellf-build.tar.gz"
                 exit 1
             fi
         fi
@@ -212,7 +212,7 @@ else
         exit 1
     fi
 
-    echo "✅ GateFlow pobrany"
+    echo "✅ Sellf pobrany"
 fi
 echo ""
 
@@ -388,7 +388,7 @@ fi
 # 7. START APLIKACJI
 # =============================================================================
 
-echo "🚀 Uruchamiam GateFlow..."
+echo "🚀 Uruchamiam Sellf..."
 
 # Zatrzymaj jeśli działa
 pm2 delete $PM2_NAME 2>/dev/null || true
@@ -423,7 +423,7 @@ pm2 save
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo "✅ GateFlow działa!"
+    echo "✅ Sellf działa!"
 else
     echo "❌ Problem z uruchomieniem. Logi:"
     pm2 logs $PM2_NAME --lines 20
@@ -445,7 +445,7 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ GateFlow zainstalowany!"
+echo "✅ Sellf zainstalowany!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 echo "📋 Przydatne komendy:"

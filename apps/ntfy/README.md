@@ -12,7 +12,7 @@ Serwer do wysyłania powiadomień PUSH na telefon i desktop. Zastępuje płatne 
 1. Instalujesz aplikację ntfy na telefonie (Android/iOS).
 2. Subskrybujesz swój temat, np. `moj-tajny-temat`.
 3. W n8n używasz noda HTTP Request, żeby wysłać POST na Twój serwer ntfy.
-4. **BUM!** Masz powiadomienie na telefonie: "Nowe zamówienie w GateFlow: 97 PLN".
+4. **BUM!** Masz powiadomienie na telefonie: "Nowe zamówienie w Sellf: 97 PLN".
 
 ## 🌐 Po instalacji - konfiguracja domeny
 
