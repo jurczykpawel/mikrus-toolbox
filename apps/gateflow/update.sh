@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Update
-# Aktualizuje GateFlow do najnowszej wersji
+# Mikrus Toolbox - Sellf Update
+# Aktualizuje Sellf do najnowszej wersji
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
 #   ./local/deploy.sh gateflow --ssh=mikrus --update
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
+#   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz
 #   ./local/deploy.sh gateflow --ssh=mikrus --update --restart (restart bez aktualizacji)
 #
 # Zmienne środowiskowe:
@@ -19,7 +19,7 @@
 
 set -e
 
-GITHUB_REPO="jurczykpawel/gateflow"
+GITHUB_REPO="jurczykpawel/sellf"
 RESTART_ONLY=false
 
 # Parse arguments
@@ -40,8 +40,10 @@ done
 
 find_gateflow_dir() {
     local NAME="$1"
-    # Sprawdź nową lokalizację
-    if [ -d "/opt/stacks/gateflow-${NAME}" ]; then
+    # Exact match najpierw (dla rebrandu sellf-*, lub pełnych nazw)
+    if [ -d "/opt/stacks/${NAME}" ]; then
+        echo "/opt/stacks/${NAME}"
+    elif [ -d "/opt/stacks/gateflow-${NAME}" ]; then
         echo "/opt/stacks/gateflow-${NAME}"
     elif [ -d "/root/gateflow-${NAME}" ]; then
         echo "/root/gateflow-${NAME}"
@@ -54,7 +56,12 @@ find_gateflow_dir() {
 
 if [ -n "$INSTANCE" ]; then
     INSTALL_DIR=$(find_gateflow_dir "$INSTANCE")
-    PM2_NAME="gateflow-${INSTANCE}"
+    # Jeśli katalog znaleziony po exact match (np. sellf-tsa), użyj INSTANCE jako PM2 name
+    if [ -d "/opt/stacks/$INSTANCE" ] || [ -d "/root/$INSTANCE" ]; then
+        PM2_NAME="$INSTANCE"
+    else
+        PM2_NAME="gateflow-${INSTANCE}"
+    fi
 elif ls -d /opt/stacks/gateflow-* &>/dev/null 2>&1; then
     INSTALL_DIR=$(ls -d /opt/stacks/gateflow-* 2>/dev/null | head -1)
     PM2_NAME="gateflow-${INSTALL_DIR##*-}"
@@ -78,9 +85,9 @@ NC='\033[0m'
 
 echo ""
 if [ "$RESTART_ONLY" = true ]; then
-    echo -e "${BLUE}🔄 GateFlow Restart${NC}"
+    echo -e "${BLUE}🔄 Sellf Restart${NC}"
 else
-    echo -e "${BLUE}🔄 GateFlow Update${NC}"
+    echo -e "${BLUE}🔄 Sellf Update${NC}"
 fi
 echo ""
 
@@ -89,7 +96,7 @@ echo ""
 # =============================================================================
 
 if [ ! -d "$INSTALL_DIR/admin-panel" ]; then
-    echo -e "${RED}❌ GateFlow nie jest zainstalowany${NC}"
+    echo -e "${RED}❌ Sellf nie jest zainstalowany${NC}"
     echo "   Użyj deploy.sh do pierwszej instalacji."
     exit 1
 fi
@@ -102,7 +109,7 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-echo "✅ GateFlow znaleziony w $INSTALL_DIR"
+echo "✅ Sellf znaleziony w $INSTALL_DIR"
 
 # Pobierz aktualną wersję (jeśli dostępna)
 CURRENT_VERSION="nieznana"
@@ -137,12 +144,12 @@ if [ "$RESTART_ONLY" = false ]; then
         fi
     else
         echo "📥 Pobieram z GitHub..."
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
         if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
             echo -e "${RED}❌ Nie udało się pobrać nowej wersji${NC}"
             echo ""
             echo "Jeśli repo jest prywatne, użyj --build-file:"
-            echo "   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz"
+            echo "   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/sellf-build.tar.gz"
             exit 1
         fi
     fi
@@ -177,7 +184,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "⏹️  Zatrzymuję GateFlow..."
+echo "⏹️  Zatrzymuję Sellf..."
 
 export PATH="$HOME/.bun/bin:$PATH"
 pm2 stop $PM2_NAME 2>/dev/null || true
@@ -226,7 +233,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "🚀 Uruchamiam GateFlow..."
+echo "🚀 Uruchamiam Sellf..."
 
 cd "$STANDALONE_DIR"
 
@@ -250,7 +257,7 @@ pm2 save
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo -e "${GREEN}✅ GateFlow działa!${NC}"
+    echo -e "${GREEN}✅ Sellf działa!${NC}"
 else
     echo -e "${RED}❌ Problem z uruchomieniem. Logi:${NC}"
     pm2 logs $PM2_NAME --lines 20
@@ -264,9 +271,9 @@ fi
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 if [ "$RESTART_ONLY" = true ]; then
-    echo -e "${GREEN}✅ GateFlow zrestartowany!${NC}"
+    echo -e "${GREEN}✅ Sellf zrestartowany!${NC}"
 else
-    echo -e "${GREEN}✅ GateFlow zaktualizowany!${NC}"
+    echo -e "${GREEN}✅ Sellf zaktualizowany!${NC}"
 fi
 echo "════════════════════════════════════════════════════════════════"
 echo ""
