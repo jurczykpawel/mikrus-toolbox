@@ -1003,8 +1003,13 @@ if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
                 # Static sites - update Caddyfile
                 server_exec "sudo sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' /etc/caddy/Caddyfile && sudo systemctl reload caddy" 2>/dev/null || true
             elif [ "$APP_NAME" != "sellf" ]; then
-                # Docker apps - update docker-compose (skip for standalone apps like Sellf)
-                server_exec "cd $APP_STACK_DIR && sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' docker-compose.yaml && docker compose up -d" 2>/dev/null || true
+                # Docker apps - update docker-compose and .env with real domain.
+                # Try both docker-compose.yml and docker-compose.yaml filenames.
+                server_exec "cd $APP_STACK_DIR && \
+                    for f in docker-compose.yml docker-compose.yaml .env; do \
+                        [ -f \"\$f\" ] && sudo sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' \"\$f\"; \
+                    done && \
+                    sudo docker compose up -d" 2>/dev/null || true
             fi
         fi
 
