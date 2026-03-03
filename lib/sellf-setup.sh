@@ -553,7 +553,13 @@ update_supabase_site_url() {
         [ -f "$SUPABASE_TOKEN_FILE" ] && SUPABASE_TOKEN=$(cat "$SUPABASE_TOKEN_FILE")
     fi
     if [ -z "$PROJECT_REF" ]; then
-        [ -f "$SELLF_SUPABASE_CONFIG" ] && source "$SELLF_SUPABASE_CONFIG"
+        # Wyciągnij ref z SUPABASE_URL (ustawiony w bieżącej sesji deploy)
+        # To zapobiega nadpisaniu produkcyjnego projektu gdy testujemy na innym serwerze
+        if [ -n "$SUPABASE_URL" ]; then
+            PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||; s|\.supabase\.co.*||')
+        elif [ -f "$SELLF_SUPABASE_CONFIG" ]; then
+            source "$SELLF_SUPABASE_CONFIG"
+        fi
     fi
 
     # Debug info
