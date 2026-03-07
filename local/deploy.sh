@@ -357,6 +357,10 @@ if [ "$UPDATE_MODE" = true ]; then
                     export SUPABASE_URL="$REMOTE_SUPABASE_URL"
                 fi
             fi
+            # Jeśli GITHUB_TOKEN nie ustawione, spróbuj pobrać z gh CLI
+            if [ -z "$GITHUB_TOKEN" ] && command -v gh &>/dev/null; then
+                export GITHUB_TOKEN=$(gh auth token 2>/dev/null) || true
+            fi
             SSH_ALIAS="$SSH_ALIAS" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
         fi
     fi
