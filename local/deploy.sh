@@ -348,6 +348,15 @@ if [ "$UPDATE_MODE" = true ]; then
         echo "🗄️  Aktualizuję bazę danych..."
 
         if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
+            # Jeśli SUPABASE_URL nie jest ustawione lokalnie, pobierz z .env.local serwera
+            if [ -z "$SUPABASE_URL" ]; then
+                INSTANCE_NAME="${INSTANCE:-tsa}"
+                REMOTE_ENV_FILE="/opt/stacks/sellf-${INSTANCE_NAME}/admin-panel/.env.local"
+                REMOTE_SUPABASE_URL=$(server_exec "grep '^SUPABASE_URL=' '$REMOTE_ENV_FILE' 2>/dev/null | cut -d'=' -f2-" 2>/dev/null)
+                if [ -n "$REMOTE_SUPABASE_URL" ]; then
+                    export SUPABASE_URL="$REMOTE_SUPABASE_URL"
+                fi
+            fi
             SSH_ALIAS="$SSH_ALIAS" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
         fi
     fi

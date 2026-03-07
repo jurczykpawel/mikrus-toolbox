@@ -179,7 +179,7 @@ fi
 if [ -z "$SELLF_DIR" ]; then
     SELLF_DIR="/root/sellf"
 fi
-REMOTE_MIGRATIONS_DIR="$SELLF_DIR/admin-panel/supabase/migrations"
+REMOTE_MIGRATIONS_DIR="$SELLF_DIR/supabase/migrations"
 
 # Pobierz listę migracji z serwera przez SSH
 MIGRATIONS_LIST=$(server_exec "ls '$REMOTE_MIGRATIONS_DIR'/*.sql 2>/dev/null | xargs -n1 basename 2>/dev/null | sort" 2>/dev/null)
