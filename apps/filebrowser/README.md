@@ -2,7 +2,7 @@
 
 Prywatny dysk + publiczny hosting plików. Zamiennik Tiiny.host za ułamek ceny.
 
-**RAM:** ~160MB (FileBrowser + nginx) | **Dysk:** zależy od plików | **Plan:** Mikrus 2.1+
+**RAM:** ~160MB (FileBrowser + nginx) | **Dysk:** zależy od plików | **Plan:** Mikrus 1.0 PRO+ (35 zł/rok + 60 zł jednorazowo za Docker)
 
 ---
 
@@ -138,7 +138,7 @@ Skrypt automatycznie:
 |-------------|----------|--------|
 | Tiiny.host Pro | ~500 zł | 10 stron |
 | Tiiny.host Business | ~1200 zł | 50 stron |
-| **FileBrowser + Mikrus** | **~240 zł** | **bez limitów** |
+| **FileBrowser + Mikrus 1.0 PRO** | **35 zł/rok + 60 zł jednorazowo (Docker)** | **bez limitów** |
 
 ---
 
