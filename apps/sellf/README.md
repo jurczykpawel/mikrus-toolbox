@@ -3,7 +3,7 @@
 **Open source alternatywa dla Gumroad, EasyCart, Teachable.**
 Sprzedawaj e-booki, kursy, szablony i licencje bez miesięcznych opłat i prowizji platformy.
 
-**RAM:** ~300MB | **Dysk:** ~500MB | **Plan:** Mikrus 2.1+ (1GB RAM)
+**RAM:** ~130MB | **Dysk:** ~500MB | **Plan:** Mikrus 1.0+ (35 zł/rok)
 
 > **Uwaga:** W przykładach używamy `--ssh=mikrus` jako domyślnego aliasu SSH.
 > Jeśli masz inny alias w `~/.ssh/config`, zamień `mikrus` na swój (np. `srv1`, `mojserwer`).
@@ -52,7 +52,7 @@ Skrypt przeprowadzi Cię przez:
 
 | Usługa | Koszt | Do czego | Obowiązkowe |
 |--------|-------|----------|-------------|
-| **Mikrus 2.1+** | 75 zł/rok | Hosting aplikacji | Tak |
+| **Mikrus 1.0+** | 35 zł/rok | Hosting aplikacji | Tak |
 | **Supabase** | Darmowe | Baza danych + Auth | Tak |
 | **Stripe** | 2.9% + 1.20 zł/transakcja | Płatności | Nie* |
 | **Cloudflare** | Darmowe | Turnstile CAPTCHA | Nie |
@@ -565,6 +565,71 @@ Możesz też użyć różnych projektów Supabase dla każdej instancji za pomoc
 **Q: Jak sprawdzić status wielu instancji?**
 
 A: `ssh mikrus "pm2 list"` - pokaże wszystkie procesy Sellf z ich statusem.
+
+---
+
+## Czy Mikrus za 35 zł/rok wystarczy dla mojego sklepu?
+
+**Tak.** Sprawdziliśmy to w praktyce.
+
+Przetestowaliśmy Sellf na najtańszym planie Mikrusa (384 MB RAM, 35 zł/rok), symulując ruch jak po wrzuceniu linku do sklepu w mediach społecznościowych.
+
+| Scenariusz | Czas ładowania strony | Błędy |
+|---|:---:|:---:|
+| Normalny ruch (kilka osób naraz) | poniżej 0,5 s | brak |
+| Większy ruch (30 osób jednocześnie) | ok. 0,7 s | brak |
+| Duży ruch (50 osób jednocześnie) | ok. 1 s | brak |
+| Viral (100 osób jednocześnie) | ok. 2 s | brak |
+
+**Przy 100 osobach jednocześnie na stronie - zero błędów, zero niedostępności.** Sklep działa, klienci mogą kupować.
+
+Dla porównania: większość małych sklepów internetowych ma kilka-kilkanaście osób jednocześnie. 100 concurrent to scenariusz rodem z kampanii reklamowej lub posta który "poszedł w viral". Nawet wtedy - działa.
+
+> Sellf na Mikrusie 1.0 za 35 zł/rok to realny wybór dla twórcy cyfrowego z listą do kilku tysięcy subskrybentów, który chce sprzedawać e-booki, kursy czy szablony bez płacenia prowizji platformom.
+
+---
+
+## Czy darmowy Supabase wystarczy?
+
+Sellf używa Supabase tylko jako bazy danych i systemu autoryzacji. Jeśli materiały (pliki, wideo) hostowane są na zewnętrznym CDN, Supabase nie obsługuje żadnego ruchu pobierania - tylko dane sklepu.
+
+**Szacunkowe zużycie bazy dla małego sklepu** (20 produktów, 1000 użytkowników, 100 transakcji/miesiąc):
+
+| | Rok 1 | Rok 2 | Rok 3 |
+|---|:---:|:---:|:---:|
+| Produkty, konfiguracja | ~100 KB | ~200 KB | ~300 KB |
+| Użytkownicy i dostępy | ~2.5 MB | ~5 MB | ~7 MB |
+| Transakcje i płatności | ~1.3 MB | ~2.6 MB | ~4 MB |
+| Logi (audit, webhooki) | ~30 MB | ~60 MB | ~90 MB |
+| Eventy wideo i analityka | ~10 MB | ~24 MB | ~36 MB |
+| Indeksy PostgreSQL | ~45 MB | ~90 MB | ~135 MB |
+| **Razem** | **~90 MB** | **~180 MB** | **~270 MB** |
+
+Darmowy plan Supabase daje 500 MB bazy danych i 50,000 aktywnych użytkowników miesięcznie. **Dla typowego małego sklepu cyfrowego wystarczy na 3-4 lata.**
+
+**Przy jakich przychodach darmowy Supabase przestaje wystarczać?**
+
+Ograniczeniem jest limit **50,000 aktywnych użytkowników miesięcznie** (MAU - osoby które się zalogowały w danym miesiącu, nie wszystkie zarejestrowane). Baza danych przy takiej skali pozostaje daleko poniżej limitu 500 MB.
+
+| Etap sklepu | Aktywni użytkownicy/mies | Sprzedaż/mies | Przychód/mies | Serwer | Supabase |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Start | ~200 | ~15 szt. | ~750 zł | bez problemu | bez problemu |
+| Rosnący sklep | ~1,000 | ~50 szt. | ~5,000 zł | bez problemu | bez problemu |
+| Stabilny sklep | ~3,000 | ~100 szt. | ~10,000 zł | bez problemu | bez problemu |
+| Rozważ mocniejszy serwer | ~10,000+ | ~300 szt. | ~30,000 zł | zależy od ruchu* | bez problemu |
+| Upgrade Supabase | ~50,000+ | ~1,000 szt. | ~100,000 zł | wymaga większego VPS | limit MAU |
+
+*Przy ~3,000 MAU ruch jest rozłożony w czasie i serwer radzi sobie bez problemu. Przy ~10,000+ MAU wszystko zależy od charakteru sprzedaży: subskrybenci rozproszeni w czasie to jedno, premiera produktu z mailingiem do 10,000 osób to drugie. Na takie sytuacje warto rozważyć mocniejszy plan lub PM2 cluster.
+
+Innymi słowy: przy kosztach infrastruktury 35 zł rocznie możesz spokojnie prowadzić sklep generujący **kilka tysięcy złotych miesięcznie**. Upgrade staje się tematem dopiero przy poważnym wzroście - a wtedy masz już budżet żeby nawet nie zauważyć tego kosztu.
+
+Gdy sklep urośnie i darmowy plan przestanie wystarczać, naturalnym krokiem jest **własna instancja Supabase** - toolbox ma gotowy instalator:
+
+```bash
+./local/deploy.sh supabase --ssh=ALIAS --domain=db.example.com
+```
+
+Supabase self-hosted wymaga minimum 2 GB RAM (za dużo na Mikrus 1.0), ale działa świetnie na VPS za kilkanaście euro miesięcznie (np. Hetzner CAX11). Szczegóły: [apps/supabase/README.md](../supabase/README.md).
 
 ---
 
